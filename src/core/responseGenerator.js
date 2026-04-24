@@ -2,14 +2,14 @@ const { callClaude }          = require('../services/claudeService');
 const { getHistory }          = require('../models/Message');
 const { getFAQsFormatted }    = require('../models/FAQ');
 
-async function generateResponse({ conversationId, userMessage, intent, config }) {
+async function generateResponse({ conversationId, userMessage, intent, config, agentNotes }) {
   // Obtener historial reciente (últimos 10 mensajes)
   const history = await getHistory(conversationId, 10);
   
   // Obtener FAQs activas
   const faqs = await getFAQsFormatted();
 
-  const systemPrompt = buildSystemPrompt(config, faqs, intent);
+  const systemPrompt = buildSystemPrompt(config, faqs, intent, agentNotes);
 
   // Formatear historial
   const messages = [
@@ -20,8 +20,8 @@ async function generateResponse({ conversationId, userMessage, intent, config })
   return await callClaude({ systemPrompt, messages });
 }
 
-function buildSystemPrompt(config, faqs, intent) {
-  return `
+function buildSystemPrompt(config, faqs, intent, agentNotes) {
+  let prompt = `
 Sos el asistente virtual de ${config.agency_name}, una agencia de viajes especializada en turismo.
 
 PERSONALIDAD:
@@ -47,8 +47,13 @@ REGLAS ESTRICTAS:
 - Máximo 3 párrafos cortos por respuesta
 - Usá emojis con moderación
 
-INTENCIÓN DETECTADA DEL USUARIO: ${intent}
-  `.trim();
+INTENCIÓN DETECTADA DEL USUARIO: ${intent}`;
+
+  if (agentNotes) {
+    prompt += `\n\n=== INSTRUCCIONES SECRETAS DEL AGENTE HUMANO ===\nEl agente humano de la agencia ha dejado las siguientes notas o instrucciones exclusivas para vos sobre este usuario:\n"${agentNotes}"\n\nDebés tener muy en cuenta esta nota para armar tu respuesta. NUNCA le digas al usuario que estás leyendo notas de un humano, simplemente incorporá la información con naturalidad.`;
+  }
+
+  return prompt.trim();
 }
 
 module.exports = { generateResponse };

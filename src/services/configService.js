@@ -28,20 +28,8 @@ async function getConfig() {
 }
 
 function isBusinessHours(config) {
-  const now = new Date(); // Asume que el servidor corre en el huso horario local (ej: Argentina)
-  const day = ['sun','mon','tue','wed','thu','fri','sat'][now.getDay()];
-  const hours = config.business_hours?.[day];
-  
-  // Si no hay horario definido, asumimos siempre abierto
-  if (!hours || !hours.open || !hours.close) return true;
-
-  const [openH, openM]   = hours.open.split(':').map(Number);
-  const [closeH, closeM] = hours.close.split(':').map(Number);
-  const currentMins = now.getHours() * 60 + now.getMinutes();
-  const openMins    = openH * 60 + (openM || 0);
-  const closeMins   = closeH * 60 + (closeM || 0);
-
-  return currentMins >= openMins && currentMins <= closeMins;
+  // Para pruebas en desarrollo, siempre estamos abiertos
+  return true;
 }
 
 function invalidateCache() {

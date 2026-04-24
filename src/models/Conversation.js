@@ -33,4 +33,25 @@ async function updateConversationStatus(conversationId, status) {
   return result.rows[0];
 }
 
-module.exports = { getOrCreateConversation, updateConversationStatus };
+async function updateAgentNotes(conversationId, notes) {
+  const query = `
+    UPDATE conversations SET agent_notes = $1, updated_at = NOW()
+    WHERE id = $2
+    RETURNING *;
+  `;
+  const result = await pool.query(query, [notes, conversationId]);
+  return result.rows[0];
+}
+
+async function getConversations() {
+  const query = `
+    SELECT c.*, u.name as user_name, u.platform_id as platform_user_id 
+    FROM conversations c
+    JOIN users u ON c.user_id = u.id
+    ORDER BY c.updated_at DESC;
+  `;
+  const result = await pool.query(query);
+  return result.rows;
+}
+
+module.exports = { getOrCreateConversation, updateConversationStatus, updateAgentNotes, getConversations };

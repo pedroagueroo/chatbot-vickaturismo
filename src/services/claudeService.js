@@ -1,7 +1,16 @@
+const Anthropic = require('@anthropic-ai/sdk');
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
 async function callClaude({ systemPrompt, messages, maxTokens = 600 }) {
-  const lastMessage = messages[messages.length - 1]?.content || '';
-  console.log('[MODO SIMULADO] Mensaje recibido:', lastMessage);
-  return 'Hola! Soy el asistente virtual de Vicka Turismo 🌍 Estamos en modo de prueba. Pronto voy a poder responderte con toda la info sobre nuestros paquetes. ¿En qué puedo ayudarte?';
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: maxTokens,
+    system: systemPrompt,
+    messages: messages
+  });
+  
+  return response.content[0].text;
 }
 
 module.exports = { callClaude };

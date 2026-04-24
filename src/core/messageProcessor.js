@@ -44,7 +44,13 @@ async function processMessage(normalized) {
     }
 
     // 6. Generar respuesta con Claude
-    const response = await generateResponse({ conversationId: conversation.id, userMessage: text, intent, config });
+    const response = await generateResponse({ 
+      conversationId: conversation.id, 
+      userMessage: text, 
+      intent, 
+      config,
+      agentNotes: conversation.agent_notes 
+    });
 
     // 7. Guardar y enviar respuesta
     await saveMessage({ conversationId: conversation.id, role: 'assistant', content: response, intent });

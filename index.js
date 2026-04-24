@@ -6,11 +6,18 @@ const { connectDB } = require('./src/config/database');
 const logger = require('./src/utils/logger');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 
 app.use('/webhook', webhookRoutes);
 app.use('/admin', adminRoutes);
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Servir Panel Frontend
+app.use('/', express.static('src/public'));
 
 const PORT = process.env.PORT || 3000;
 
