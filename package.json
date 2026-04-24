@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node migrations/run.js && node index.js",
     "dev": "nodemon index.js",
     "migrate": "node migrations/run.js"
   },
