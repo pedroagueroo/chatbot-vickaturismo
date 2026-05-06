@@ -9,12 +9,28 @@ const { getConversations, updateAgentNotes, updateConversationStatus } = require
 
 // Login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-    const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    return res.json({ token });
+  try {
+    const email = (req.body.email || '').trim();
+    const password = (req.body.password || '').trim();
+    const expectedEmail = (process.env.ADMIN_EMAIL || '').trim();
+    const expectedPassword = (process.env.ADMIN_PASSWORD || '').trim();
+    
+    console.log(`Intento de login con email: "${email}" (esperado: "${expectedEmail}")`);
+    
+    if (email === expectedEmail && password === expectedPassword) {
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET no está configurado en las variables de entorno');
+      }
+      const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: '24h' });
+      return res.json({ token });
+    }
+    
+    console.log('Fallo de login: Credenciales incorrectas');
+    res.status(401).json({ error: 'Credenciales inválidas' });
+  } catch (err) {
+    console.error('Error durante el login:', err);
+    res.status(500).json({ error: 'Error interno del servidor en login' });
   }
-  res.status(401).json({ error: 'Credenciales inválidas' });
 });
 
 // Obtener configuración del bot

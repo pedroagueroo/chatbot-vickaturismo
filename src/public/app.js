@@ -13,8 +13,8 @@ function showDashboard() {
 }
 
 async function login() {
-  const email = document.getElementById('email').value;
-  const password = document.getElementById('password').value;
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value.trim();
   try {
     const res = await fetch('/admin/login', {
       method: 'POST',
