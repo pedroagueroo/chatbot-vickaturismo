@@ -12,30 +12,34 @@ async function processMessage(normalized) {
   const { platform, platform_user_id, text, name, platform_msg_id } = normalized;
 
   try {
-    // 1. Obtener o crear usuario y conversación
+    console.log(`[PROCESSOR] Mensaje recibido de ${platform_user_id}: "${text}"`);
+    
     const user = await getOrCreateUser({ platform, platform_user_id, name });
+    console.log(`[PROCESSOR] Usuario: ${user.id}`);
+    
     const conversation = await getOrCreateConversation({ userId: user.id, platform });
+    console.log(`[PROCESSOR] Conversación: ${conversation.id} - Status: ${conversation.status}`);
 
     if (conversation.status === 'escalated') {
-      logger.info('Conversation escalated, skipping bot', { conversationId: conversation.id });
+      console.log('[PROCESSOR] Conversación escalada, saltando bot');
       return;
     }
 
-    // 2. Guardar mensaje entrante
-    await saveMessage({ conversationId: conversation.id, role: 'user', content: text, platform_msg_id });
+    const savedMsg = await saveMessage({ conversationId: conversation.id, role: 'user', content: text, platform_msg_id });
+    console.log(`[PROCESSOR] Mensaje guardado: ${savedMsg?.id}`);
 
-    // 3. Obtener configuración
     const config = await configService.getConfig();
+    console.log(`[PROCESSOR] Config obtenida: ${config?.agency_name}`);
 
-    // 4. Verificar horario de atención
     if (!configService.isBusinessHours(config)) {
       const sender = getSender(platform);
       await sender.sendMessage(platform_user_id, config.out_of_hours_msg || 'Estamos fuera de nuestro horario de atención.');
       return;
     }
 
-    // 5. Detectar si necesita escalamiento
     let intent = await detectIntent(text);
+    console.log(`[PROCESSOR] Intención detectada: ${intent}`);
+    
     const keywordsEscalation = checkEscalation(text, config.escalation_keywords);
     
     if (keywordsEscalation || intent === 'human_request') {
@@ -43,7 +47,6 @@ async function processMessage(normalized) {
       return;
     }
 
-    // 6. Generar respuesta con Claude
     const response = await generateResponse({ 
       conversationId: conversation.id, 
       userMessage: text, 
@@ -51,14 +54,16 @@ async function processMessage(normalized) {
       config,
       agentNotes: conversation.agent_notes 
     });
+    console.log(`[PROCESSOR] Respuesta generada: "${response.substring(0, 50)}..."`);
 
-    // 7. Guardar y enviar respuesta
-    await saveMessage({ conversationId: conversation.id, role: 'assistant', content: response, intent });
+    const savedResp = await saveMessage({ conversationId: conversation.id, role: 'assistant', content: response, intent });
+    console.log(`[PROCESSOR] Respuesta guardada: ${savedResp?.id}`);
+    
     const sender = getSender(platform);
     await sender.sendMessage(platform_user_id, response);
 
   } catch (err) {
-    logger.error('Error processing message:', err);
+    console.error('[PROCESSOR ERROR]', err.message, err.stack);
   }
 }
 
