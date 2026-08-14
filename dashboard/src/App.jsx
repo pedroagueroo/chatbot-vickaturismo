@@ -13,6 +13,7 @@ import { Faqs } from './pages/crm/Faqs';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { BusinessesList } from './pages/admin/BusinessesList';
 
 function App() {
   return (
@@ -36,7 +37,7 @@ function App() {
           <Route element={<ProtectedRoute allowedRoles={['super_admin']} />}>
             <Route element={<Layout />}>
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/businesses" element={<AdminDashboard />} />
+              <Route path="/admin/businesses" element={<BusinessesList />} />
             </Route>
           </Route>
 
