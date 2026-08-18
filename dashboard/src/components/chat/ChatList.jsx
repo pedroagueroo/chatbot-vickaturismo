@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatRelativeTime } from '../../utils/dateFormatter';
-import { MessageSquare, MoreVertical, Trash2, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, MoreVertical, Trash2, CheckCircle2, X } from 'lucide-react';
 
 export const ChatList = ({ conversations, activeConvId, onSelectConv, onDeleteConv }) => {
   const [menuOpenId, setMenuOpenId] = useState(null);
@@ -44,12 +44,47 @@ export const ChatList = ({ conversations, activeConvId, onSelectConv, onDeleteCo
           <button
             key={conv.id}
             onClick={() => onSelectConv(conv)}
-            className={`w-full p-4 text-left flex items-start space-x-3 transition-colors ${
+            className={`w-full p-4 text-left flex items-start space-x-3 transition-colors relative overflow-hidden ${
               isSelected
                 ? 'bg-indigo-600/15 border-l-4 border-indigo-500'
                 : 'hover:bg-slate-800/40'
             }`}
           >
+            {/* Opciones de Chat: Overlay Modal que cubre toda la fila */}
+            {isMenuOpen && (
+              <div 
+                className="absolute inset-0 z-20 flex items-center justify-center space-x-2 bg-slate-900/95 backdrop-blur-md px-2"
+                onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setMenuOpenId(null);
+                    // TODO: Implementar resolver
+                  }}
+                  className="flex-1 max-w-[110px] py-2 px-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded border border-slate-700 flex items-center justify-center space-x-1.5 transition-colors"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Resolver</span>
+                </button>
+                
+                <button
+                  onClick={(e) => handleDeleteClick(e, conv.id)}
+                  className="flex-1 max-w-[110px] py-2 px-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-medium rounded border border-red-500/20 flex items-center justify-center space-x-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar</span>
+                </button>
+
+                <button
+                  onClick={(e) => { e.stopPropagation(); setMenuOpenId(null); }}
+                  className="p-1.5 ml-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="relative">
               <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 flex-shrink-0 font-bold text-sm">
                 {customer.name?.charAt(0)?.toUpperCase() || 'U'}
@@ -81,38 +116,6 @@ export const ChatList = ({ conversations, activeConvId, onSelectConv, onDeleteCo
                     >
                       <MoreVertical className="w-3.5 h-3.5" />
                     </button>
-
-                    {/* Menú desplegable */}
-                    {isMenuOpen && (
-                      <div 
-                        className="absolute right-0 mt-1 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="py-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMenuOpenId(null);
-                              // TODO: Implementar resolver si se desea
-                            }}
-                            className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700/50 flex items-center space-x-2"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Resolver Chat</span>
-                          </button>
-                          
-                          <div className="h-px bg-slate-700 my-1"></div>
-                          
-                          <button
-                            onClick={(e) => handleDeleteClick(e, conv.id)}
-                            className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center space-x-2"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Eliminar Chat</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
