@@ -8,6 +8,10 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Estado para Super Admin (Impersonación de empresa)
+  const [businesses, setBusinesses] = useState([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState(null);
+
   useEffect(() => {
     // 1. Obtener la sesión activa inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -28,6 +32,8 @@ export const AuthProvider = ({ children }) => {
         await fetchProfile(currentUser.id);
       } else {
         setProfile(null);
+        setBusinesses([]);
+        setSelectedBusinessId(null);
         setLoading(false);
       }
     });
@@ -36,6 +42,24 @@ export const AuthProvider = ({ children }) => {
       listener?.subscription.unsubscribe();
     };
   }, []);
+
+  const fetchBusinesses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('businesses')
+        .select('*')
+        .order('name');
+      if (error) throw error;
+      setBusinesses(data || []);
+      // Si no hay empresa seleccionada aún y hay empresas disponibles, seleccionar la primera
+      setSelectedBusinessId((prev) => {
+        if (prev && data.some((b) => b.id === prev)) return prev;
+        return data.length > 0 ? data[0].id : null;
+      });
+    } catch (err) {
+      console.error('Error cargando empresas en AuthContext:', err);
+    }
+  };
 
   const fetchProfile = async (userId) => {
     try {
@@ -50,6 +74,9 @@ export const AuthProvider = ({ children }) => {
         setProfile(null);
       } else {
         setProfile(data);
+        if (data.role === 'super_admin') {
+          await fetchBusinesses();
+        }
       }
     } catch (err) {
       console.error('Unexpected error loading profile:', err);
@@ -76,8 +103,25 @@ export const AuthProvider = ({ children }) => {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    setBusinesses([]);
+    setSelectedBusinessId(null);
     setLoading(false);
   };
+
+  const isSuperAdmin = profile?.role === 'super_admin';
+
+  // ID y Nombre efectivo de la empresa en uso
+  const currentBusinessId = isSuperAdmin
+    ? selectedBusinessId
+    : profile?.business_id;
+
+  const currentBusinessObject = isSuperAdmin
+    ? businesses.find((b) => b.id === selectedBusinessId)
+    : profile?.businesses;
+
+  const currentBusinessName = isSuperAdmin
+    ? currentBusinessObject?.name || 'Vicka Turismo'
+    : profile?.businesses?.name || 'Mi Empresa';
 
   const value = {
     user,
@@ -85,9 +129,14 @@ export const AuthProvider = ({ children }) => {
     loading,
     login,
     logout,
-    isSuperAdmin: profile?.role === 'super_admin',
-    businessId: profile?.business_id,
-    businessName: profile?.businesses?.name || 'Mi Empresa',
+    isSuperAdmin,
+    businessId: currentBusinessId,
+    businessName: currentBusinessName,
+    activeBusiness: currentBusinessObject,
+    businesses,
+    selectedBusinessId,
+    setSelectedBusinessId,
+    reloadBusinesses: fetchBusinesses,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -96,3 +145,4 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   return useContext(AuthContext);
 };
+

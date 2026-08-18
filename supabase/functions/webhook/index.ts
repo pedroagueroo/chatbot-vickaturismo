@@ -131,18 +131,18 @@ serve(async (req) => {
         customer = newCustomer;
       }
 
-      // Buscar o crear conversación activa
+      // Buscar o crear conversación (activa o escalada)
       let { data: conversation } = await supabase
         .from('conversations')
         .select('*')
         .eq('business_id', businessId)
         .eq('customer_id', customer.id)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
-      if (!conversation) {
+      // Si no hay conversación, o si estuviera explícitamente "closed" (para futuras features)
+      if (!conversation || conversation.status === 'closed') {
         const { data: newConv } = await supabase
           .from('conversations')
           .insert({
@@ -155,12 +155,6 @@ serve(async (req) => {
         conversation = newConv;
       }
 
-      // Si está escalado a humano, no responde la IA
-      if (conversation.status === 'escalated') {
-        console.log('Conversación escalada, el bot no responde.');
-        return new Response('EVENT_RECEIVED', { status: 200 });
-      }
-
       // ========================================================
       // GUARDAR MENSAJE DEL USUARIO
       // ========================================================
@@ -171,6 +165,12 @@ serve(async (req) => {
         content: userText,
         platform_msg_id: message.id
       });
+
+      // Si está escalado a humano, no responde la IA
+      if (conversation.status === 'escalated') {
+        console.log('Conversación escalada, el bot no responde.');
+        return new Response('EVENT_RECEIVED', { status: 200 });
+      }
 
       // ========================================================
       // CARGAR CONFIGURACIÓN Y FAQS DEL TENANT (EMPRESA)
@@ -225,9 +225,22 @@ serve(async (req) => {
         }
       }
 
+      let customerCrmContext = '';
+      if (customer) {
+        customerCrmContext = `
+Información y Ficha CRM del Cliente:
+- Nombre: ${customer.name || 'No especificado'}
+- Teléfono: ${customer.phone || 'No especificado'}
+- Email: ${customer.email || 'No registrado'}
+- DNI / Pasaporte: ${customer.dni || 'No registrado'}
+- Notas y Preferencias del Viajero: ${customer.notes || 'Sin notas registradas'}
+(Usa esta información para personalizar tu trato y recordar sus preferencias de viaje de forma natural, sin decirle directamente que estás leyendo una ficha).
+`;
+      }
+
       const systemPrompt = `Eres un asistente de IA para la empresa "${business.name}".
 Tu personalidad es: ${config?.bot_personality || 'Amable y profesional'}.
-
+${customerCrmContext}
 Información de la empresa (FAQs):
 ${faqsText}
 
@@ -242,7 +255,7 @@ Reglas:
 
       try {
         const claudeResp = await anthropic.messages.create({
-          model: 'claude-3-5-sonnet-20240620',
+          model: 'claude-sonnet-4-6',
           max_tokens: 300,
           system: systemPrompt,
           messages: formattedHistory,
@@ -257,6 +270,14 @@ Reglas:
       // RESPONDER A WHATSAPP (META API)
       // ========================================================
       if (whatsappToken && aiResponse) {
+        
+        // HACK ARGENTINA: Meta Sandbox odia el '9'. 
+        // Si el número empieza con 549 y tiene 13 caracteres, le sacamos el 9 para responder.
+        let replyPhone = userPhone;
+        if (replyPhone.startsWith('549') && replyPhone.length === 13) {
+          replyPhone = '54' + replyPhone.substring(3);
+        }
+
         const metaRes = await fetch(
           `https://graph.facebook.com/v19.0/${phoneId}/messages`,
           {
@@ -267,7 +288,7 @@ Reglas:
             },
             body: JSON.stringify({
               messaging_product: 'whatsapp',
-              to: userPhone,
+              to: replyPhone,
               type: 'text',
               text: { body: aiResponse },
             }),

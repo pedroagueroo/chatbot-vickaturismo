@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatRelativeTime } from '../../utils/dateFormatter';
-import { User, MessageSquare, AlertCircle } from 'lucide-react';
+import { MessageSquare } from 'lucide-react';
 
 export const ChatList = ({ conversations, activeConvId, onSelectConv }) => {
   if (!conversations || conversations.length === 0) {

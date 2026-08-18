@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabaseClient';
+import { useAuth } from '../../context/AuthContext';
 import {
   Building2,
   Plus,
   Search,
   Edit2,
   Trash2,
-  CheckCircle2,
-  AlertTriangle,
   Loader2,
   Key,
   Calendar,
@@ -15,15 +16,17 @@ import {
   Save,
   ShieldCheck,
   ShieldAlert,
-  Power
+  Power,
+  ExternalLink
 } from 'lucide-react';
 
 export const BusinessesList = () => {
+  const { setSelectedBusinessId } = useAuth();
+  const navigate = useNavigate();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -59,10 +62,11 @@ export const BusinessesList = () => {
   };
 
   const showFeedback = (type, message) => {
-    setFeedback({ type, message });
-    setTimeout(() => {
-      setFeedback({ type: '', message: '' });
-    }, 4000);
+    if (type === 'success') {
+      toast.success(message);
+    } else {
+      toast.error(message);
+    }
   };
 
   const openModal = (biz = null) => {
@@ -225,23 +229,7 @@ export const BusinessesList = () => {
         </button>
       </div>
 
-      {/* Feedback Banner */}
-      {feedback.message && (
-        <div
-          className={`p-3.5 rounded-xl text-xs md:text-sm flex items-start space-x-3 transition-all ${
-            feedback.type === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/10 border border-red-500/30 text-red-300'
-          }`}
-        >
-          {feedback.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400 mt-0.5" />
-          ) : (
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-red-400 mt-0.5" />
-          )}
-          <span>{feedback.message}</span>
-        </div>
-      )}
+
 
       {/* Barra de Búsqueda y Filtros */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -367,9 +355,21 @@ export const BusinessesList = () => {
                     <td className="py-4 px-4 text-right">
                       <div className="inline-flex items-center space-x-1">
                         <button
+                          onClick={() => {
+                            setSelectedBusinessId(biz.id);
+                            toast.success(`Accediendo al panel de "${biz.name}"`);
+                            navigate('/crm');
+                          }}
+                          title={`Gestionar CRM de ${biz.name}`}
+                          className="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:text-white rounded-lg text-xs font-medium transition-all flex items-center space-x-1 cursor-pointer mr-1"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Ver CRM</span>
+                        </button>
+                        <button
                           onClick={() => handleToggleStatus(biz)}
                           title={biz.status === 'active' ? 'Suspender Empresa' : 'Activar Empresa'}
-                          className={`p-1.5 rounded-lg transition-colors ${
+                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                             biz.status === 'active'
                               ? 'text-amber-400 hover:bg-amber-500/10'
                               : 'text-emerald-400 hover:bg-emerald-500/10'
@@ -380,14 +380,14 @@ export const BusinessesList = () => {
                         <button
                           onClick={() => openModal(biz)}
                           title="Editar Datos"
-                          className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteBusiness(biz)}
                           title="Eliminar Empresa"
-                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

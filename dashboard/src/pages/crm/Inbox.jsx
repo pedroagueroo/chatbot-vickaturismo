@@ -3,7 +3,9 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { ChatList } from '../../components/chat/ChatList';
 import { ChatWindow } from '../../components/chat/ChatWindow';
+import { CustomerProfile } from '../../components/chat/CustomerProfile';
 import { MessageSquare, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const Inbox = () => {
   const { businessId } = useAuth();
@@ -16,6 +18,7 @@ export const Inbox = () => {
   useEffect(() => {
     if (!businessId) return;
 
+    setActiveConv(null);
     fetchConversations();
 
     // Suscripción Realtime a nuevas conversaciones
@@ -120,9 +123,34 @@ export const Inbox = () => {
       // Actualizar estado local
       setActiveConv((prev) => (prev ? { ...prev, status: newStatus } : null));
       fetchConversations();
+
+      if (newStatus === 'escalated') {
+        toast.success('Chat escalado a control humano');
+      } else {
+        toast.success('Chat devuelto a la IA');
+      }
     } catch (err) {
       console.error('Error actualizando estado:', err.message);
+      toast.error('Error al cambiar estado del chat');
     }
+  };
+
+  const handleCustomerUpdate = (updatedCustomer) => {
+    setActiveConv((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        customers: updatedCustomer,
+      };
+    });
+
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.customer_id === updatedCustomer.id
+          ? { ...c, customers: updatedCustomer }
+          : c
+      )
+    );
   };
 
   if (loading) {
@@ -134,9 +162,9 @@ export const Inbox = () => {
   }
 
   return (
-    <div className="h-[calc(100vh-6rem)] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl">
+    <div className="h-[calc(100vh-6rem)] bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-2xl relative">
       {/* Columna Izquierda: Lista de Chats */}
-      <div className="w-full md:w-80 border-r border-slate-800 flex flex-col bg-slate-900/80">
+      <div className="w-full md:w-72 lg:w-80 border-r border-slate-800 flex flex-col bg-slate-900/80 shrink-0">
         <div className="p-4 border-b border-slate-800 flex items-center justify-between">
           <h2 className="text-sm font-bold text-white flex items-center space-x-2">
             <MessageSquare className="w-4 h-4 text-indigo-400" />
@@ -153,12 +181,20 @@ export const Inbox = () => {
         />
       </div>
 
-      {/* Columna Derecha: Ventana de Chat */}
-      <div className="flex-1 bg-slate-950/40">
+      {/* Columna Central: Ventana de Chat */}
+      <div className="flex-1 bg-slate-950/40 flex flex-col min-w-0">
         <ChatWindow
           conversation={activeConv}
           messages={messages}
           onToggleEscalate={handleToggleEscalate}
+        />
+      </div>
+
+      {/* Columna Derecha: Ficha CRM del Cliente */}
+      <div className="w-full md:w-72 lg:w-80 shrink-0 h-full">
+        <CustomerProfile
+          customer={activeConv?.customers}
+          onCustomerUpdate={handleCustomerUpdate}
         />
       </div>
     </div>

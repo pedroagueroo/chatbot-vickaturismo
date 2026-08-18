@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import {
   Bot,
   Sparkles,
   MessageSquare,
-  Clock,
   Phone,
   Save,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   Key,
-  ShieldAlert,
-  HelpCircle
+  ShieldAlert
 } from 'lucide-react';
 
 export const BotSettings = () => {
@@ -23,7 +20,6 @@ export const BotSettings = () => {
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [feedback, setFeedback] = useState({ type: '', message: '' });
 
   // Bot Config State
   const [agencyName, setAgencyName] = useState('');
@@ -71,7 +67,6 @@ export const BotSettings = () => {
 
   const loadBotData = async (bId) => {
     setLoading(true);
-    setFeedback({ type: '', message: '' });
     try {
       // A. Cargar bot_config
       const { data: configData, error: configError } = await supabase
@@ -127,7 +122,6 @@ export const BotSettings = () => {
     if (!targetBusinessId) return;
 
     setSaving(true);
-    setFeedback({ type: '', message: '' });
 
     try {
       const parsedKeywords = keywordsText
@@ -171,17 +165,10 @@ export const BotSettings = () => {
 
       if (bizError) throw bizError;
 
-      setFeedback({
-        type: 'success',
-        message: '¡Configuración guardada exitosamente! El bot aplicará estos cambios en su próxima respuesta.',
-      });
-
-      setTimeout(() => {
-        setFeedback({ type: '', message: '' });
-      }, 5000);
+      toast.success('¡Configuración guardada exitosamente! El bot aplicará estos cambios en su próxima respuesta.');
     } catch (err) {
       console.error('Error guardando configuración:', err);
-      setFeedback({ type: 'error', message: 'Error al guardar: ' + err.message });
+      toast.error('Error al guardar: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -221,23 +208,7 @@ export const BotSettings = () => {
         )}
       </div>
 
-      {/* Feedback Banner */}
-      {feedback.message && (
-        <div
-          className={`p-4 rounded-xl text-xs md:text-sm flex items-start space-x-3 transition-all ${
-            feedback.type === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
-              : 'bg-red-500/10 border border-red-500/30 text-red-300'
-          }`}
-        >
-          {feedback.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400 mt-0.5" />
-          ) : (
-            <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-400 mt-0.5" />
-          )}
-          <span>{feedback.message}</span>
-        </div>
-      )}
+
 
       {loading ? (
         <div className="h-64 flex items-center justify-center text-slate-400 space-x-2">

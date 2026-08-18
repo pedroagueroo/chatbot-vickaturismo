@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
-import { Send, UserCheck, Bot, ShieldAlert, Phone } from 'lucide-react';
+import { Send, UserCheck, Bot, Phone } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
   const [inputText, setInputText] = useState('');
@@ -20,24 +21,36 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
     if (!inputText.trim() || sending) return;
 
     setSending(true);
-    try {
-      const textToSend = inputText.trim();
-      setInputText('');
+    const textToSend = inputText.trim();
+    setInputText('');
 
-      // 1. Guardar mensaje enviado por el agente humano en la DB
-      await supabase.from('messages').insert({
-        business_id: conversation.business_id,
-        conversation_id: conversation.id,
-        role: 'assistant',
-        content: textToSend,
+    try {
+      // 1. Invocar Edge Function para enviar a WhatsApp vía Meta API y guardar en DB
+      const { data, error } = await supabase.functions.invoke('send-message', {
+        body: {
+          conversation_id: conversation.id,
+          content: textToSend,
+        },
       });
 
-      // 2. Si la conversación no estaba escalada, la escalamos automáticamente
+      if (error) {
+        throw error;
+      }
+
+      if (data?.error) {
+        console.error('Error desde Edge Function:', data.error, data.details);
+        toast.error(`Error al enviar mensaje: ${data.error}`);
+      } else {
+        toast.success('Mensaje enviado a WhatsApp');
+      }
+
+      // 2. Si la conversación no estaba escalada, actualizamos el estado local a escalado
       if (!isEscalated) {
         await onToggleEscalate(conversation.id, 'escalated');
       }
     } catch (err) {
       console.error('Error enviando mensaje:', err);
+      toast.error(`Error de conexión al enviar: ${err.message || 'Error desconocido'}`);
     } finally {
       setSending(false);
     }

@@ -1,10 +1,10 @@
 import React from 'react';
 import { formatMessageTime } from '../../utils/dateFormatter';
-import { Bot, User, ShieldAlert } from 'lucide-react';
+import { Bot, User, UserCheck } from 'lucide-react';
 
 export const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
-  const isAssistant = message.role === 'assistant';
+  const isHumanAgent = message.intent === 'human_agent';
 
   return (
     <div className={`flex w-full ${isUser ? 'justify-start' : 'justify-end'} mb-3`}>
@@ -12,6 +12,8 @@ export const MessageBubble = ({ message }) => {
         className={`max-w-[75%] md:max-w-[65%] rounded-2xl p-3.5 shadow-sm text-xs md:text-sm leading-relaxed space-y-1 ${
           isUser
             ? 'bg-slate-800 border border-slate-700/80 text-slate-100 rounded-tl-none'
+            : isHumanAgent
+            ? 'bg-indigo-700 border border-indigo-500/80 text-white rounded-tr-none shadow-indigo-900/30'
             : 'bg-indigo-600 border border-indigo-500/50 text-white rounded-tr-none'
         }`}
       >
@@ -20,6 +22,11 @@ export const MessageBubble = ({ message }) => {
             <>
               <User className="w-3 h-3 text-slate-400" />
               <span className="text-slate-400">Cliente</span>
+            </>
+          ) : isHumanAgent ? (
+            <>
+              <UserCheck className="w-3 h-3 text-amber-300" />
+              <span className="text-amber-300">Agente Humano</span>
             </>
           ) : (
             <>

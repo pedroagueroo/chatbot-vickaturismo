@@ -5,11 +5,9 @@ import {
   Building2,
   Users,
   MessageSquare,
-  Activity,
   CheckCircle2,
   AlertTriangle,
   HelpCircle,
-  TrendingUp,
   Loader2,
   ArrowUpRight,
   Server
