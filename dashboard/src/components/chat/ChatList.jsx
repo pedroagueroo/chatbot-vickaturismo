@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { formatRelativeTime } from '../../utils/dateFormatter';
-import { MessageSquare } from 'lucide-react';
+import { MessageSquare, MoreVertical, Trash2, CheckCircle2 } from 'lucide-react';
 
-export const ChatList = ({ conversations, activeConvId, onSelectConv }) => {
+export const ChatList = ({ conversations, activeConvId, onSelectConv, onDeleteConv }) => {
+  const [menuOpenId, setMenuOpenId] = useState(null);
+
   if (!conversations || conversations.length === 0) {
     return (
       <div className="p-8 text-center text-slate-500 space-y-2">
@@ -12,12 +14,31 @@ export const ChatList = ({ conversations, activeConvId, onSelectConv }) => {
     );
   }
 
+  const handleMenuClick = (e, id) => {
+    e.stopPropagation();
+    setMenuOpenId(menuOpenId === id ? null : id);
+  };
+
+  const handleDeleteClick = (e, id) => {
+    e.stopPropagation();
+    setMenuOpenId(null);
+    if (onDeleteConv) onDeleteConv(id);
+  };
+
+  // Cierra el menú si se hace clic fuera de él en otro lugar de la app
+  React.useEffect(() => {
+    const handleClickOutside = () => setMenuOpenId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   return (
-    <div className="divide-y divide-slate-800/60 overflow-y-auto max-h-[calc(100vh-12rem)]">
+    <div className="divide-y divide-slate-800/60 overflow-y-auto max-h-[calc(100vh-12rem)] relative">
       {conversations.map((conv) => {
         const isSelected = conv.id === activeConvId;
         const customer = conv.customers || {};
         const isEscalated = conv.status === 'escalated';
+        const isMenuOpen = menuOpenId === conv.id;
 
         return (
           <button
@@ -43,12 +64,57 @@ export const ChatList = ({ conversations, activeConvId, onSelectConv }) => {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1">
-                <h3 className="text-xs font-semibold text-slate-200 truncate">
+                <h3 className="text-xs font-semibold text-slate-200 truncate pr-2">
                   {customer.name || customer.phone || 'Cliente WhatsApp'}
                 </h3>
-                <span className="text-[10px] text-slate-500 flex-shrink-0">
-                  {formatRelativeTime(conv.updated_at || conv.created_at)}
-                </span>
+                
+                <div className="flex items-center space-x-2 flex-shrink-0">
+                  <span className="text-[10px] text-slate-500">
+                    {formatRelativeTime(conv.updated_at || conv.created_at)}
+                  </span>
+                  
+                  {/* Botón 3 puntitos */}
+                  <div className="relative">
+                    <button
+                      onClick={(e) => handleMenuClick(e, conv.id)}
+                      className="p-1 rounded hover:bg-slate-700/50 text-slate-400 hover:text-slate-200 transition-colors"
+                    >
+                      <MoreVertical className="w-3.5 h-3.5" />
+                    </button>
+
+                    {/* Menú desplegable */}
+                    {isMenuOpen && (
+                      <div 
+                        className="absolute right-0 mt-1 w-36 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="py-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(null);
+                              // TODO: Implementar resolver si se desea
+                            }}
+                            className="w-full text-left px-4 py-2 text-xs text-slate-300 hover:bg-slate-700/50 flex items-center space-x-2"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Resolver Chat</span>
+                          </button>
+                          
+                          <div className="h-px bg-slate-700 my-1"></div>
+                          
+                          <button
+                            onClick={(e) => handleDeleteClick(e, conv.id)}
+                            className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-red-500/10 hover:text-red-300 flex items-center space-x-2"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Eliminar Chat</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-xs">

@@ -135,6 +135,34 @@ export const Inbox = () => {
     }
   };
 
+  const handleDeleteConv = async (convId) => {
+    // Confirmación nativa simple
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este chat y todos sus mensajes? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      // Por cascade_delete, borrar la conversación debería borrar los mensajes asociados si la BD está configurada así.
+      // Si no, borramos primero los mensajes. Lo más seguro es borrar los mensajes de ese chat primero.
+      await supabase.from('messages').delete().eq('conversation_id', convId);
+      const { error } = await supabase.from('conversations').delete().eq('id', convId);
+
+      if (error) throw error;
+
+      toast.success('Chat eliminado correctamente');
+      
+      if (activeConv?.id === convId) {
+        setActiveConv(null);
+        setMessages([]);
+      }
+      
+      setConversations((prev) => prev.filter((c) => c.id !== convId));
+    } catch (err) {
+      console.error('Error eliminando chat:', err.message);
+      toast.error('Hubo un error al eliminar el chat');
+    }
+  };
+
   const handleCustomerUpdate = (updatedCustomer) => {
     setActiveConv((prev) => {
       if (!prev) return prev;
@@ -178,6 +206,7 @@ export const Inbox = () => {
           conversations={conversations}
           activeConvId={activeConv?.id}
           onSelectConv={(conv) => setActiveConv(conv)}
+          onDeleteConv={handleDeleteConv}
         />
       </div>
 
