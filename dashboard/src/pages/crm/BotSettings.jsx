@@ -179,8 +179,8 @@ export const BotSettings = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center space-x-2.5">
-            <Bot className="w-6 h-6 text-indigo-400" />
+          <h1 className="font-display text-xl md:text-2xl font-bold text-white flex items-center space-x-2.5">
+            <Bot className="w-6 h-6 text-teal-500" />
             <span>Configuración del Agente IA</span>
           </h1>
           <p className="text-xs md:text-sm text-slate-400 mt-1">
@@ -190,13 +190,13 @@ export const BotSettings = () => {
 
         {/* Selector de empresa si es Super Admin */}
         {isSuperAdmin && businesses.length > 0 && (
-          <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5">
+          <div className="flex items-center space-x-2 surface-glass rounded-md px-3 py-1.5">
             <ShieldAlert className="w-4 h-4 text-amber-400" />
             <label className="text-xs text-slate-400">Empresa:</label>
             <select
               value={targetBusinessId || ''}
               onChange={(e) => setTargetBusinessId(e.target.value)}
-              className="bg-slate-950 text-xs text-white border border-slate-700 rounded-lg px-2.5 py-1 focus:outline-none focus:border-indigo-500"
+              className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2.5 py-1 focus:outline-none focus:border-teal-600"
             >
               {businesses.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -211,17 +211,18 @@ export const BotSettings = () => {
 
 
       {loading ? (
-        <div className="h-64 flex items-center justify-center text-slate-400 space-x-2">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-          <span className="text-xs">Cargando configuración del bot...</span>
+        <div className="space-y-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="surface-glass rounded-md p-6 h-28 animate-pulse" />
+          ))}
         </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-6">
           {/* Card 1: Personalidad & Prompt del Sistema */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
-            <div className="flex items-center space-x-2 text-indigo-400 font-semibold text-sm">
+          <div className="surface-glass rounded-md p-5 md:p-6 space-y-4">
+            <div className="flex items-center space-x-2 text-teal-400 font-semibold text-sm">
               <Sparkles className="w-4 h-4" />
-              <h2>Identidad y Personalidad de la IA</h2>
+              <h2 className="font-display">Identidad y Personalidad de la IA</h2>
             </div>
 
             <div className="space-y-4">
@@ -235,7 +236,7 @@ export const BotSettings = () => {
                   onChange={(e) => setAgencyName(e.target.value)}
                   placeholder="Ej: Vicka Turismo"
                   required
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
 
@@ -250,15 +251,15 @@ export const BotSettings = () => {
                   onChange={(e) => setBotPersonality(e.target.value)}
                   placeholder="Ej: Sos un asesor apasionado por el turismo, hablás con voseo rioplatense, sos amable y buscás cerrar ventas..."
                   required
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl p-3 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all leading-relaxed"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md p-3 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all leading-relaxed"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 2: Mensajes Automáticos & Escalamiento */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
-            <div className="flex items-center space-x-2 text-indigo-400 font-semibold text-sm">
+          <div className="surface-glass rounded-md p-5 md:p-6 space-y-4">
+            <div className="flex items-center space-x-2 text-teal-400 font-semibold text-sm">
               <MessageSquare className="w-4 h-4" />
               <h2>Mensajes Predefinidos y Reglas de Atención</h2>
             </div>
@@ -273,7 +274,7 @@ export const BotSettings = () => {
                   value={welcomeMsg}
                   onChange={(e) => setWelcomeMsg(e.target.value)}
                   placeholder="¡Hola! Soy el asistente virtual de la agencia..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
 
@@ -286,7 +287,7 @@ export const BotSettings = () => {
                   value={outOfHoursMsg}
                   onChange={(e) => setOutOfHoursMsg(e.target.value)}
                   placeholder="En este momento nuestras oficinas están cerradas..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
 
@@ -300,15 +301,15 @@ export const BotSettings = () => {
                   value={keywordsText}
                   onChange={(e) => setKeywordsText(e.target.value)}
                   placeholder="humano, asesor, queja, hablar con alguien, llamar"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 3: Datos de Contacto de la Empresa */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
-            <div className="flex items-center space-x-2 text-indigo-400 font-semibold text-sm">
+          <div className="surface-glass rounded-md p-5 md:p-6 space-y-4">
+            <div className="flex items-center space-x-2 text-teal-400 font-semibold text-sm">
               <Phone className="w-4 h-4" />
               <h2>Datos de Contacto Públicos</h2>
             </div>
@@ -323,7 +324,7 @@ export const BotSettings = () => {
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="+54 9 11 1234-5678"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
 
@@ -336,15 +337,15 @@ export const BotSettings = () => {
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   placeholder="contacto@agencia.com"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
             </div>
           </div>
 
           {/* Card 4: Credenciales de WhatsApp (Meta Cloud API) */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 md:p-6 space-y-4 shadow-xl">
-            <div className="flex items-center space-x-2 text-indigo-400 font-semibold text-sm">
+          <div className="surface-glass rounded-md p-5 md:p-6 space-y-4">
+            <div className="flex items-center space-x-2 text-teal-400 font-semibold text-sm">
               <Key className="w-4 h-4" />
               <h2>Conexión con Meta Cloud API (WhatsApp)</h2>
             </div>
@@ -359,7 +360,7 @@ export const BotSettings = () => {
                   value={phoneId}
                   onChange={(e) => setPhoneId(e.target.value)}
                   placeholder="Ej: 1140146155842603"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
                 />
               </div>
 
@@ -373,7 +374,7 @@ export const BotSettings = () => {
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
                   placeholder="EAAYXMG..."
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-4 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
                 />
               </div>
             </div>
@@ -384,7 +385,7 @@ export const BotSettings = () => {
             <button
               type="submit"
               disabled={saving}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-2"
+              className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium py-2.5 px-6 rounded-md text-xs md:text-sm transition-colors flex items-center space-x-2 btn-neu"
             >
               {saving ? (
                 <>

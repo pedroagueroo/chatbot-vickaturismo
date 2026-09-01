@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   AreaChart,
   Area,
+  Line,
+  LineChart,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -13,15 +15,33 @@ import {
 } from 'recharts';
 import {
   MessageSquare,
-  Bot,
   Users,
-  Sparkles,
+  Compass,
   TrendingUp,
   UserCheck,
   ChevronRight,
-  Loader2,
   RefreshCw
 } from 'lucide-react';
+
+const Sparkline = ({ data, dataKey, color }) => {
+  if (!data || data.length < 2) return <div className="w-14 h-7" />;
+  return (
+    <div className="w-14 h-7">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 2, right: 1, left: 1, bottom: 2 }}>
+          <Line
+            type="monotone"
+            dataKey={dataKey}
+            stroke={color}
+            strokeWidth={1.5}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
 
 export const CrmDashboard = () => {
   const { businessId, businessName, isSuperAdmin } = useAuth();
@@ -124,18 +144,18 @@ export const CrmDashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
           <div className="flex items-center space-x-2">
-            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">
-              Panel CRM & Métricas
+            <h1 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight">
+              Resumen
             </h1>
             {isSuperAdmin && (
-              <span className="text-[10px] font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full">
-                Vista SuperAdmin
+              <span className="text-[10px] font-mono bg-orange-950/60 text-orange-300 border border-orange-900 px-2 py-0.5 rounded">
+                VISTA SUPERADMIN
               </span>
             )}
           </div>
           <p className="text-xs md:text-sm text-slate-400 mt-1">
             Centro de control y actividad de WhatsApp en vivo para{' '}
-            <span className="text-indigo-300 font-semibold">{businessName}</span>.
+            <span className="text-teal-400 font-semibold">{businessName}</span>.
           </p>
         </div>
 
@@ -143,14 +163,14 @@ export const CrmDashboard = () => {
           <button
             onClick={fetchDashboardData}
             title="Refrescar Estadísticas"
-            className="p-2.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-xl transition-all cursor-pointer flex items-center space-x-1 text-xs"
+            className="p-2.5 surface-well hover:brightness-125 text-slate-300 rounded-md transition-all cursor-pointer flex items-center space-x-1 text-xs"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-teal-400' : ''}`} />
             <span className="hidden sm:inline">Actualizar</span>
           </button>
           <button
             onClick={() => navigate('/crm/inbox')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-3.5 rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-1.5 cursor-pointer"
+            className="bg-teal-600 hover:bg-teal-500 text-white font-medium py-2 px-3.5 rounded-md text-xs md:text-sm transition-colors flex items-center space-x-1.5 cursor-pointer btn-neu"
           >
             <MessageSquare className="w-4 h-4" />
             <span>Abrir Inbox Live</span>
@@ -158,114 +178,92 @@ export const CrmDashboard = () => {
         </div>
       </div>
 
-      {/* Grid de Métricas Principales (KPI Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Conversaciones Hoy */}
-        <div className="bg-slate-900 border border-slate-800 hover:border-indigo-500/40 p-5 rounded-2xl transition-all shadow-lg relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Conversaciones Hoy
-            </span>
-            <div className="p-2 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-400 group-hover:scale-110 transition-transform">
-              <MessageSquare className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-3xl font-bold text-white tracking-tight">
-              {loading ? <Loader2 className="w-6 h-6 animate-spin text-indigo-400" /> : stats.todayConversations}
+      {/* Tira de Métricas: una sola pieza dividida, no cuatro tarjetas repetidas */}
+      <div className="surface-glass rounded-md flex flex-col sm:flex-row divide-y divide-dashed divide-slate-700/50 sm:divide-y-0 sm:divide-x">
+        {/* Conversaciones Hoy */}
+        <div className="flex-1 p-5">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+            Conversaciones · Hoy
+          </span>
+          <div className="mt-2 flex items-end justify-between">
+            <p className="font-display text-4xl font-bold text-white leading-none">
+              {loading ? <span className="inline-block w-10 h-8 rounded bg-slate-700/40 animate-pulse align-middle" /> : stats.todayConversations}
             </p>
-            <span className="text-[11px] font-medium text-emerald-400 flex items-center space-x-0.5">
-              <TrendingUp className="w-3 h-3" />
-              <span>En tiempo real</span>
-            </span>
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">actualiza al instante</p>
         </div>
 
-        {/* KPI 2: Total Clientes / Leads */}
-        <div className="bg-slate-900 border border-slate-800 hover:border-purple-500/40 p-5 rounded-2xl transition-all shadow-lg relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+        {/* Base de Leads */}
+        <div className="flex-1 p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
               Base de Leads
             </span>
-            <div className="p-2 bg-purple-500/10 border border-purple-500/20 rounded-xl text-purple-400 group-hover:scale-110 transition-transform">
-              <Users className="w-4 h-4" />
-            </div>
+            <Sparkline data={chartData} dataKey="leads" color="#ea580c" />
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-3xl font-bold text-white tracking-tight">
-              {loading ? <Loader2 className="w-6 h-6 animate-spin text-purple-400" /> : stats.totalCustomers}
+          <div className="mt-2 flex items-end justify-between gap-2">
+            <p className="font-display text-4xl font-bold text-white leading-none">
+              {loading ? <span className="inline-block w-10 h-8 rounded bg-slate-700/40 animate-pulse align-middle" /> : stats.totalCustomers}
             </p>
             <button
               onClick={() => navigate('/crm/customers')}
-              className="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center space-x-0.5 cursor-pointer"
+              className="text-[11px] font-semibold text-orange-400 hover:text-orange-300 flex items-center cursor-pointer pb-1"
             >
-              <span>Ver todos</span>
+              ver todos
               <ChevronRight className="w-3 h-3" />
             </button>
           </div>
         </div>
 
-        {/* KPI 3: Mensajes Procesados */}
-        <div className="bg-slate-900 border border-slate-800 hover:border-emerald-500/40 p-5 rounded-2xl transition-all shadow-lg relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Mensajes de WhatsApp
+        {/* Mensajes Procesados */}
+        <div className="flex-1 p-5">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+              Mensajes WhatsApp
             </span>
-            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 group-hover:scale-110 transition-transform">
-              <TrendingUp className="w-4 h-4" />
-            </div>
+            <Sparkline data={chartData} dataKey="mensajes" color="#14b8a6" />
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-3xl font-bold text-white tracking-tight">
-              {loading ? <Loader2 className="w-6 h-6 animate-spin text-emerald-400" /> : stats.totalMessages}
+          <div className="mt-2 flex items-end justify-between">
+            <p className="font-display text-4xl font-bold text-white leading-none">
+              {loading ? <span className="inline-block w-10 h-8 rounded bg-slate-700/40 animate-pulse align-middle" /> : stats.totalMessages}
             </p>
-            <span className="text-[11px] font-mono text-slate-400">Total histórico</span>
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">total histórico</p>
         </div>
 
-        {/* KPI 4: Estado del Bot & FAQs */}
-        <div className="bg-slate-900 border border-slate-800 hover:border-amber-500/40 p-5 rounded-2xl transition-all shadow-lg relative overflow-hidden group">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              IA & FAQs Activas
-            </span>
-            <div className="p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-400 group-hover:scale-110 transition-transform">
-              <Bot className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <p className="text-sm font-bold text-emerald-400 flex items-center space-x-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-              <span>Claude 3.5 Sonnet</span>
+        {/* Estado del Bot & FAQs */}
+        <div className="flex-1 p-5">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+            IA Activa
+          </span>
+          <div className="mt-2 flex items-end justify-between">
+            <p className="font-display text-xl font-bold text-white leading-none truncate">
+              Claude 3.5 Sonnet
             </p>
-            <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700">
-              {stats.activeFaqs} FAQs
-            </span>
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-500">{stats.activeFaqs} FAQs activas</p>
         </div>
       </div>
 
       {/* Sección Central: Gráfico de Actividad & Panel de Últimos Clientes */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Gráfico Recharts de Evolución de Mensajes (2 Columnas) */}
-        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 bg-indigo-500/10 rounded-lg text-indigo-400">
-                <TrendingUp className="w-4 h-4" />
-              </div>
+        <div className="lg:col-span-2 surface-glass rounded-md p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
+            <div className="flex items-center space-x-2.5">
+              <TrendingUp className="w-4 h-4 text-teal-500" />
               <div>
-                <h3 className="font-bold text-sm text-white">Evolución de Mensajes (Últimos 7 Días)</h3>
-                <p className="text-[11px] text-slate-400">Volumen de interacciones procesadas por la IA</p>
+                <h3 className="font-display font-bold text-sm text-white">Evolución de Mensajes (Últimos 7 Días)</h3>
+                <p className="text-[11px] text-slate-500">Volumen de interacciones procesadas por la IA</p>
               </div>
             </div>
             <div className="flex items-center space-x-3 text-xs">
               <div className="flex items-center space-x-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-teal-500"></span>
                 <span className="text-slate-300">Mensajes</span>
               </div>
               <div className="flex items-center space-x-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
+                <span className="w-2.5 h-2.5 rounded-sm bg-orange-600"></span>
                 <span className="text-slate-300">Leads</span>
               </div>
             </div>
@@ -274,9 +272,7 @@ export const CrmDashboard = () => {
           {/* Gráfico */}
           <div className="h-64 w-full pt-2">
             {loading ? (
-              <div className="h-full flex items-center justify-center text-slate-500">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-              </div>
+              <div className="h-full w-full rounded bg-slate-700/20 animate-pulse" />
             ) : chartData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-slate-500 text-xs">
                 Sin datos suficientes de los últimos 7 días
@@ -286,30 +282,33 @@ export const CrmDashboard = () => {
                 <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorMsg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#0d9488" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#0d9488" stopOpacity={0.0} />
                     </linearGradient>
                     <linearGradient id="colorLead" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#a855f7" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="#c2410c" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#c2410c" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                   <XAxis dataKey="date" stroke="#64748b" fontSize={11} tickLine={false} />
                   <YAxis stroke="#64748b" fontSize={11} tickLine={false} allowDecimals={false} />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#0f172a',
-                      borderColor: '#334155',
-                      borderRadius: '0.75rem',
+                      backgroundColor: 'rgba(15, 23, 42, 0.7)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)',
+                      borderColor: 'rgba(148, 163, 184, 0.15)',
+                      borderRadius: '0.375rem',
                       fontSize: '12px',
                       color: '#fff',
+                      boxShadow: '0 8px 20px -8px rgba(0,0,0,0.6)',
                     }}
                   />
                   <Area
                     type="monotone"
                     dataKey="mensajes"
-                    stroke="#6366f1"
+                    stroke="#14b8a6"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorMsg)"
@@ -318,7 +317,7 @@ export const CrmDashboard = () => {
                   <Area
                     type="monotone"
                     dataKey="leads"
-                    stroke="#a855f7"
+                    stroke="#ea580c"
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorLead)"
@@ -331,26 +330,26 @@ export const CrmDashboard = () => {
         </div>
 
         {/* Últimos Clientes Capturados (1 Columna) */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 flex flex-col justify-between">
+        <div className="surface-glass rounded-md p-5 space-y-4 flex flex-col justify-between">
           <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-1.5 bg-purple-500/10 rounded-lg text-purple-400">
-                  <UserCheck className="w-4 h-4" />
-                </div>
-                <h3 className="font-bold text-sm text-white">Leads Recientes</h3>
+            <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
+              <div className="flex items-center space-x-2.5">
+                <UserCheck className="w-4 h-4 text-orange-500" />
+                <h3 className="font-display font-bold text-sm text-white">Leads Recientes</h3>
               </div>
               <button
                 onClick={() => navigate('/crm/customers')}
-                className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer"
+                className="text-[11px] text-teal-400 hover:text-teal-300 font-semibold cursor-pointer"
               >
                 Ver todos
               </button>
             </div>
 
             {loading ? (
-              <div className="py-12 flex justify-center text-slate-500">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
+              <div className="space-y-2 py-1">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="h-10 rounded bg-slate-700/20 animate-pulse" />
+                ))}
               </div>
             ) : recentCustomers.length === 0 ? (
               <div className="py-8 text-center text-slate-500 text-xs space-y-2">
@@ -363,17 +362,17 @@ export const CrmDashboard = () => {
                   <div
                     key={c.id}
                     onClick={() => navigate('/crm/customers')}
-                    className="py-2.5 flex items-center justify-between hover:bg-slate-800/40 p-2 rounded-xl transition-colors cursor-pointer group"
+                    className="py-2.5 flex items-center justify-between hover:bg-slate-800/40 p-2 rounded-md transition-colors cursor-pointer group"
                   >
                     <div className="flex items-center space-x-2.5 overflow-hidden">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600/30 to-purple-600/30 border border-indigo-500/30 flex items-center justify-center font-bold text-xs text-indigo-300 flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-teal-400 flex-shrink-0">
                         {c.name?.charAt(0)?.toUpperCase() || 'C'}
                       </div>
                       <div className="overflow-hidden">
-                        <p className="text-xs font-semibold text-white group-hover:text-indigo-300 transition-colors truncate">
+                        <p className="text-xs font-semibold text-white group-hover:text-teal-300 transition-colors truncate">
                           {c.name || 'Cliente sin nombre'}
                         </p>
-                        <p className="text-[10px] font-mono text-slate-400 truncate">
+                        <p className="text-[10px] font-mono text-slate-500 truncate">
                           {c.phone || c.platform_id}
                         </p>
                       </div>
@@ -391,14 +390,14 @@ export const CrmDashboard = () => {
           </div>
 
           {/* Banner de Acceso Rápido */}
-          <div className="p-3 bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/20 rounded-xl flex items-center justify-between">
+          <div className="p-3 surface-well border-l-[3px] border-l-teal-600 rounded-md flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+              <Compass className="w-4 h-4 text-teal-500 flex-shrink-0" />
               <span className="text-xs text-slate-200 font-medium">Gestión de IA & FAQs</span>
             </div>
             <button
               onClick={() => navigate('/crm/faqs')}
-              className="text-[11px] font-bold text-indigo-300 hover:text-white bg-indigo-600/30 hover:bg-indigo-600 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              className="text-[11px] font-bold text-teal-300 hover:text-white bg-slate-800 hover:bg-teal-600 px-2.5 py-1 rounded transition-colors cursor-pointer"
             >
               Configurar
             </button>

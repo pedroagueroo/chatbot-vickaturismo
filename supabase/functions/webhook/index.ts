@@ -20,6 +20,188 @@ const anthropic = new Anthropic({
   apiKey: Deno.env.get('ANTHROPIC_API_KEY') || '',
 });
 
+// Google Speech-to-Text (transcripción de audios de WhatsApp)
+const GOOGLE_STT_API_KEY = Deno.env.get('GOOGLE_STT_API_KEY') || '';
+// Dejamos margen bajo el free tier de Google (60 min/mes) para evitar cargos inesperados
+const MONTHLY_AUDIO_LIMIT_SECONDS = 55 * 60;
+
+function currentYearMonth(): string {
+  return new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+}
+
+async function getMonthlySttUsage(): Promise<number> {
+  const { data } = await supabase
+    .from('stt_usage')
+    .select('seconds_used')
+    .eq('year_month', currentYearMonth())
+    .single();
+  return data?.seconds_used || 0;
+}
+
+async function addMonthlySttUsage(seconds: number) {
+  const ym = currentYearMonth();
+  const { data: existing } = await supabase
+    .from('stt_usage')
+    .select('seconds_used')
+    .eq('year_month', ym)
+    .single();
+
+  if (existing) {
+    await supabase
+      .from('stt_usage')
+      .update({ seconds_used: existing.seconds_used + seconds, updated_at: new Date().toISOString() })
+      .eq('year_month', ym);
+  } else {
+    await supabase.from('stt_usage').insert({ year_month: ym, seconds_used: seconds });
+  }
+}
+
+function sttEncodingFor(mimeType: string): string | null {
+  if (mimeType.includes('ogg')) return 'OGG_OPUS';
+  if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'MP3';
+  if (mimeType.includes('amr')) return 'AMR';
+  return null; // aac/m4a u otros formatos no soportados por la API de Google en modo síncrono
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+// Descarga el audio desde Meta y lo transcribe con Google Speech-to-Text.
+// Devuelve null si no se puede transcribir (formato no soportado, error, o límite mensual alcanzado),
+// en cuyo caso el llamador debe pedirle al usuario que escriba.
+async function transcribeWhatsappAudio(mediaId: string, whatsappToken: string): Promise<string | null> {
+  if (!GOOGLE_STT_API_KEY) {
+    console.error('Falta configurar GOOGLE_STT_API_KEY');
+    return null;
+  }
+
+  const mediaInfoRes = await fetch(`https://graph.facebook.com/v19.0/${mediaId}`, {
+    headers: { 'Authorization': `Bearer ${whatsappToken}` },
+  });
+  const mediaInfo = await mediaInfoRes.json();
+  if (!mediaInfo?.url) {
+    console.error('No se pudo obtener la URL del audio desde Meta:', mediaInfo);
+    return null;
+  }
+
+  const encoding = sttEncodingFor(mediaInfo.mime_type || '');
+  if (!encoding) {
+    console.error('Formato de audio no soportado para transcripción:', mediaInfo.mime_type);
+    return null;
+  }
+
+  const audioRes = await fetch(mediaInfo.url, {
+    headers: { 'Authorization': `Bearer ${whatsappToken}` },
+  });
+  const audioBuffer = await audioRes.arrayBuffer();
+
+  // Estimación conservadora de duración (asumimos ~16kbps, bitrate típico de notas de voz de WhatsApp)
+  const estimatedSeconds = Math.ceil((audioBuffer.byteLength * 8) / 16000);
+
+  const usedSeconds = await getMonthlySttUsage();
+  if (usedSeconds + estimatedSeconds > MONTHLY_AUDIO_LIMIT_SECONDS) {
+    console.log(`Límite mensual de transcripción de audio alcanzado (${usedSeconds}s usados).`);
+    return null;
+  }
+
+  try {
+    const sttRes = await fetch(
+      `https://speech.googleapis.com/v1/speech:recognize?key=${GOOGLE_STT_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: {
+            encoding,
+            sampleRateHertz: 16000,
+            languageCode: 'es-AR',
+            alternativeLanguageCodes: ['es-ES', 'en-US'],
+          },
+          audio: { content: arrayBufferToBase64(audioBuffer) },
+        }),
+      }
+    );
+
+    const sttJson = await sttRes.json();
+    const transcript = (sttJson?.results || [])
+      .map((r: any) => r.alternatives?.[0]?.transcript)
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    if (!transcript) {
+      console.error('Google STT no devolvió transcripción:', sttJson);
+      return null;
+    }
+
+    await addMonthlySttUsage(estimatedSeconds);
+    return transcript;
+  } catch (err) {
+    console.error('Error llamando a Google Speech-to-Text:', err);
+    return null;
+  }
+}
+
+// Verifica la firma X-Hub-Signature-256 que Meta envía en cada webhook real.
+// Debe calcularse sobre el body crudo (string), antes de parsearlo a JSON,
+// porque re-serializar el JSON puede no coincidir byte a byte con lo firmado.
+async function verifyMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): Promise<boolean> {
+  if (!signatureHeader || !signatureHeader.startsWith('sha256=')) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(appSecret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signatureBuffer = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+  const expectedHex = Array.from(new Uint8Array(signatureBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  const receivedHex = signatureHeader.slice('sha256='.length);
+
+  // Comparación en tiempo constante para evitar timing attacks
+  if (expectedHex.length !== receivedHex.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expectedHex.length; i++) {
+    mismatch |= expectedHex.charCodeAt(i) ^ receivedHex.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
+// Envía un mensaje de texto simple por WhatsApp (Meta Graph API)
+async function sendWhatsAppText(phoneId: string, token: string, toRaw: string, text: string) {
+  // HACK ARGENTINA: Meta Sandbox odia el '9'.
+  let to = toRaw;
+  if (to.startsWith('549') && to.length === 13) {
+    to = '54' + to.substring(3);
+  }
+
+  const res = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to,
+      type: 'text',
+      text: { body: text },
+    }),
+  });
+  return res.json();
+}
+
 serve(async (req) => {
   // Manejo de CORS para llamadas desde el navegador (si aplica)
   if (req.method === 'OPTIONS') {
@@ -51,7 +233,22 @@ serve(async (req) => {
   // ----------------------------------------------------
   if (req.method === 'POST') {
     try {
-      const body = await req.json();
+      const rawBody = await req.text();
+
+      const appSecret = Deno.env.get('META_APP_SECRET') || '';
+      if (!appSecret) {
+        console.error('Falta configurar META_APP_SECRET; se rechaza el webhook por seguridad.');
+        return new Response('Server misconfigured', { status: 500 });
+      }
+
+      const signatureHeader = req.headers.get('x-hub-signature-256');
+      const isValidSignature = await verifyMetaSignature(rawBody, signatureHeader, appSecret);
+      if (!isValidSignature) {
+        console.error('Firma X-Hub-Signature-256 inválida. Request rechazado.');
+        return new Response('Invalid signature', { status: 403 });
+      }
+
+      const body = JSON.parse(rawBody);
 
       // Validación básica de la estructura de WhatsApp
       if (body.object !== 'whatsapp_business_account') {
@@ -73,17 +270,6 @@ serve(async (req) => {
       const phoneId = value.metadata.phone_number_id; // ID del número que recibió el mensaje (NUESTRO BOT)
       const userPhone = message.from; // Número del cliente que escribe
       const userName = contact?.profile?.name || 'Usuario';
-      
-      // Extraemos el texto del mensaje
-      let userText = '';
-      if (message.type === 'text') {
-        userText = message.text.body;
-      } else {
-        // Por ahora ignoramos audios/imágenes para simplificar
-        return new Response('EVENT_RECEIVED', { status: 200 });
-      }
-
-      console.log(`Mensaje recibido de ${userPhone} en la línea ${phoneId}: "${userText}"`);
 
       // ========================================================
       // LÓGICA MULTI-TENANT: Buscamos a qué empresa pertenece
@@ -102,6 +288,29 @@ serve(async (req) => {
 
       const businessId = business.id;
       const whatsappToken = business.whatsapp_access_token;
+
+      // Extraemos el texto del mensaje (soporta texto y audio; el resto se ignora)
+      let userText = '';
+      if (message.type === 'text') {
+        userText = message.text.body;
+      } else if (message.type === 'audio') {
+        const transcript = await transcribeWhatsappAudio(message.audio.id, whatsappToken);
+        if (!transcript) {
+          await sendWhatsAppText(
+            phoneId,
+            whatsappToken,
+            userPhone,
+            'Por el momento no puedo procesar este audio 🙏. ¿Podrías escribirme tu consulta por texto? Si preferís, puedo comunicarte con uno de nuestros agentes.'
+          );
+          return new Response('EVENT_RECEIVED', { status: 200 });
+        }
+        userText = transcript;
+      } else {
+        // Por ahora ignoramos imágenes/videos/documentos para simplificar
+        return new Response('EVENT_RECEIVED', { status: 200 });
+      }
+
+      console.log(`Mensaje recibido de ${userPhone} en la línea ${phoneId}: "${userText}"`);
 
       // ========================================================
       // GESTIÓN DE CLIENTE Y CONVERSACIÓN
@@ -270,32 +479,7 @@ Reglas:
       // RESPONDER A WHATSAPP (META API)
       // ========================================================
       if (whatsappToken && aiResponse) {
-        
-        // HACK ARGENTINA: Meta Sandbox odia el '9'. 
-        // Si el número empieza con 549 y tiene 13 caracteres, le sacamos el 9 para responder.
-        let replyPhone = userPhone;
-        if (replyPhone.startsWith('549') && replyPhone.length === 13) {
-          replyPhone = '54' + replyPhone.substring(3);
-        }
-
-        const metaRes = await fetch(
-          `https://graph.facebook.com/v19.0/${phoneId}/messages`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${whatsappToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              to: replyPhone,
-              type: 'text',
-              text: { body: aiResponse },
-            }),
-          }
-        );
-        
-        const metaResJson = await metaRes.json();
+        const metaResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
         console.log("Respuesta de Meta API:", metaResJson);
       }
 

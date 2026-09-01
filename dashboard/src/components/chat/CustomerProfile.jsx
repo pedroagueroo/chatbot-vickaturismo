@@ -9,19 +9,18 @@ import {
   FileText,
   Save,
   Check,
-  Sparkles,
   Tag,
   AlertCircle
 } from 'lucide-react';
 
 const QUICK_TAGS = [
-  '✈️ Prefiere Ventana',
-  '🏨 Hoteles 4/5★',
-  '👨‍👩‍👧‍👦 Viaje Familiar',
-  '🎒 Aventura/Mochilero',
-  '💳 Presupuesto Alto',
-  '⭐ Cliente Frecuente',
-  '🌴 Destinos Playa',
+  'Prefiere Ventana',
+  'Hoteles 4/5★',
+  'Viaje Familiar',
+  'Aventura/Mochilero',
+  'Presupuesto Alto',
+  'Cliente Frecuente',
+  'Destinos Playa',
 ];
 
 export const CustomerProfile = ({ customer, onCustomerUpdate }) => {
@@ -55,7 +54,7 @@ export const CustomerProfile = ({ customer, onCustomerUpdate }) => {
 
   if (!customer) {
     return (
-      <div className="h-full flex flex-col justify-center items-center text-slate-500 p-6 text-center space-y-3">
+      <div className="flex-1 min-h-0 flex flex-col justify-center items-center text-slate-500 p-6 text-center space-y-3">
         <User className="w-10 h-10 text-slate-600 opacity-40" />
         <p className="text-xs font-medium">Selecciona un chat para ver y editar los datos del cliente</p>
       </div>
@@ -113,15 +112,15 @@ export const CustomerProfile = ({ customer, onCustomerUpdate }) => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/95 border-l border-slate-800 text-slate-200 overflow-y-auto">
-      {/* Header */}
-      <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 sticky top-0 z-10">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+    <div className="flex-1 min-h-0 flex flex-col min-w-0 border-l border-slate-700/50 text-slate-200 overflow-hidden">
+      {/* Header (fijo) */}
+      <div className="p-4 border-b border-slate-700/50 flex items-center justify-between gap-3 surface-glass rounded-none border-x-0 border-t-0 flex-shrink-0">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="w-8 h-8 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center text-teal-400 flex-shrink-0">
             <User className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+          <div className="min-w-0">
+            <h3 className="text-xs font-bold text-white uppercase tracking-wider truncate">
               Ficha del Cliente
             </h3>
             <p className="text-[10px] text-slate-400">CRM & Memoria IA</p>
@@ -129,128 +128,133 @@ export const CustomerProfile = ({ customer, onCustomerUpdate }) => {
         </div>
 
         {/* AI Memory Badge */}
-        <div className="flex items-center space-x-1 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-medium" title="La IA leerá estas notas en sus próximas respuestas">
-          <Sparkles className="w-3 h-3 text-indigo-400 animate-pulse" />
-          <span>Sync con IA</span>
+        <div className="flex items-center space-x-1.5 px-2 py-1 rounded border border-teal-900 text-teal-400 text-[10px] font-mono flex-shrink-0" title="La IA leerá estas notas en sus próximas respuestas">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-500" />
+          <span>SYNC IA</span>
         </div>
       </div>
 
-      {/* Formulario */}
-      <form onSubmit={handleSave} className="p-4 space-y-4 flex-1 flex flex-col">
-        {errorMsg && (
-          <div className="p-2.5 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+      {/* Formulario: envuelve tanto el body con scroll como el footer fijo,
+          para que el submit (click o Enter) siga funcionando en todo el conjunto */}
+      <form onSubmit={handleSave} className="flex-1 min-h-0 flex flex-col">
+        {/* Body con scroll: únicamente los campos */}
+        <div className="flex-1 min-h-0 overflow-y-auto scroll-stable p-4 space-y-5">
+          {errorMsg && (
+            <div className="p-2.5 rounded-md bg-red-950/40 border border-red-900 text-red-400 text-xs flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-        {/* Nombre */}
-        <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
-            <User className="w-3 h-3 text-slate-500" />
-            <span>Nombre Completo</span>
-          </label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Pedro Agüero"
-            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-all"
-          />
-        </div>
-
-        {/* Teléfono */}
-        <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
-            <Phone className="w-3 h-3 text-slate-500" />
-            <span>WhatsApp / Teléfono</span>
-          </label>
-          <input
-            type="text"
-            value={phone}
-            disabled
-            className="w-full bg-slate-950/40 border border-slate-800/60 rounded-xl px-3 py-2 text-xs text-slate-400 font-mono cursor-not-allowed opacity-80"
-          />
-        </div>
-
-        {/* Email */}
-        <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
-            <Mail className="w-3 h-3 text-slate-500" />
-            <span>Correo Electrónico</span>
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="ejemplo@correo.com"
-            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-all"
-          />
-        </div>
-
-        {/* DNI / Pasaporte */}
-        <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
-            <CreditCard className="w-3 h-3 text-slate-500" />
-            <span>DNI / Pasaporte</span>
-          </label>
-          <input
-            type="text"
-            value={dni}
-            onChange={(e) => setDni(e.target.value)}
-            placeholder="Ej: 42123456 / AAB123456"
-            className="w-full bg-slate-950/80 border border-slate-800 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-all"
-          />
-        </div>
-
-        {/* Notas Internas y Preferencias */}
-        <div className="space-y-1.5 flex-1 flex flex-col">
-          <div className="flex items-center justify-between">
+          {/* Nombre — campo principal, ocupa todo el ancho */}
+          <div className="space-y-1.5">
             <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
-              <FileText className="w-3 h-3 text-indigo-400" />
-              <span>Notas & Preferencias (IA Context)</span>
+              <User className="w-3 h-3 text-slate-500" />
+              <span>Nombre Completo</span>
             </label>
-            <span className="text-[10px] text-slate-500">Visible para el bot</span>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Pedro Agüero"
+              className="w-full surface-well focus:border-teal-600 rounded-md px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-colors"
+            />
           </div>
 
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Ej: Viaja siempre con su familia. Prefiere hoteles con pensión completa. Destino favorito: Brasil."
-            rows={4}
-            className="w-full flex-1 min-h-[100px] bg-slate-950/80 border border-slate-800 focus:border-indigo-500 rounded-xl p-3 text-xs text-slate-100 placeholder-slate-600 outline-none resize-none leading-relaxed transition-all"
-          />
-
-          {/* Quick Tags */}
-          <div className="pt-1">
-            <div className="text-[10px] font-medium text-slate-500 mb-1.5 flex items-center space-x-1">
-              <Tag className="w-2.5 h-2.5" />
-              <span>Etiquetas Rápidas:</span>
+          {/* Teléfono + DNI: mismo largo de dato, comparten fila */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5 min-w-0">
+              <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
+                <Phone className="w-3 h-3 text-slate-500" />
+                <span>WhatsApp</span>
+              </label>
+              <input
+                type="text"
+                value={phone}
+                disabled
+                className="w-full surface-well rounded-md px-3 py-2 text-xs text-slate-400 font-mono cursor-not-allowed opacity-70"
+              />
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {QUICK_TAGS.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => handleAddTag(tag)}
-                  className="px-2 py-0.5 rounded-lg bg-slate-800/80 hover:bg-indigo-600/20 hover:border-indigo-500/40 border border-slate-700/60 text-[10px] text-slate-300 hover:text-indigo-300 transition-all cursor-pointer"
-                >
-                  {tag}
-                </button>
-              ))}
+
+            <div className="space-y-1.5 min-w-0">
+              <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
+                <CreditCard className="w-3 h-3 text-slate-500" />
+                <span>DNI / Pasaporte</span>
+              </label>
+              <input
+                type="text"
+                value={dni}
+                onChange={(e) => setDni(e.target.value)}
+                placeholder="42123456"
+                className="w-full surface-well focus:border-teal-600 rounded-md px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-colors"
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
+              <Mail className="w-3 h-3 text-slate-500" />
+              <span>Correo Electrónico</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ejemplo@correo.com"
+              className="w-full surface-well focus:border-teal-600 rounded-md px-3 py-2 text-xs text-slate-100 placeholder-slate-600 outline-none transition-colors"
+            />
+          </div>
+
+          {/* Notas Internas y Preferencias */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[11px] font-semibold text-slate-400 flex items-center space-x-1.5">
+                <FileText className="w-3 h-3 text-slate-500" />
+                <span>Notas & Preferencias</span>
+              </label>
+              <span className="text-[10px] text-slate-500 flex-shrink-0">Visible para el bot</span>
+            </div>
+
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Ej: Viaja siempre con su familia. Prefiere hoteles con pensión completa. Destino favorito: Brasil."
+              rows={4}
+              className="w-full min-h-[100px] surface-well focus:border-teal-600 rounded-md p-3 text-xs text-slate-100 placeholder-slate-600 outline-none resize-none leading-relaxed transition-colors"
+            />
+
+            {/* Quick Tags */}
+            <div className="pt-1.5 space-y-1.5">
+              <div className="text-[10px] font-medium text-slate-500 flex items-center space-x-1">
+                <Tag className="w-2.5 h-2.5" />
+                <span>Etiquetas rápidas</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_TAGS.map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => handleAddTag(tag)}
+                    className="px-2.5 py-1 rounded bg-slate-800/80 hover:bg-teal-950 hover:border-teal-700 border border-slate-700/60 text-[10px] text-slate-300 hover:text-teal-300 transition-colors cursor-pointer"
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Footer con Botón de Guardar */}
-        <div className="pt-2 sticky bottom-0 bg-slate-900 pb-2">
+        {/* Footer (fijo): acción principal siempre accesible */}
+        <div className="flex-shrink-0 p-4 pt-3 border-t border-slate-700/50">
           <button
             type="submit"
             disabled={saving}
-            className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-lg ${
+            className={`w-full py-2.5 px-4 rounded-md text-xs font-semibold flex items-center justify-center space-x-2 transition-colors btn-neu ${
               savedSuccess
-                ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20 disabled:opacity-50'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-teal-600 hover:bg-teal-500 text-white disabled:opacity-50'
             }`}
           >
             {savedSuccess ? (

@@ -9,7 +9,7 @@ export const ProtectedRoute = ({ allowedRoles = [] }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center text-slate-300">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-3" />
+        <Loader2 className="w-8 h-8 animate-spin text-teal-500 mb-3" />
         <p className="text-sm font-medium">Cargando perfil y credenciales...</p>
       </div>
     );

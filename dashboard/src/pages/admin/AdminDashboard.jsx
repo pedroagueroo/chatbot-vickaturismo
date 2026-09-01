@@ -1,14 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import {
-  ShieldAlert,
+  LayoutGrid,
   Building2,
-  Users,
-  MessageSquare,
   CheckCircle2,
   AlertTriangle,
-  HelpCircle,
-  Loader2,
   ArrowUpRight,
   Server
 } from 'lucide-react';
@@ -98,138 +94,103 @@ export const AdminDashboard = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
-            <ShieldAlert className="w-6 h-6 text-indigo-400" />
-            <span>Centro de Control Global (Super Admin)</span>
-          </h1>
-          <p className="text-xs md:text-sm text-slate-400 mt-1">
-            Monitoreo en tiempo real de empresas, usuarios y volumen de IA en la plataforma SaaS.
-          </p>
-        </div>
-
-        <Link
-          to="/admin/businesses"
-          className="inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-indigo-600/20 flex-shrink-0"
-        >
-          <Building2 className="w-4 h-4" />
-          <span>Gestionar Empresas</span>
-        </Link>
+      <div className="border-b border-slate-800 pb-5">
+        <h1 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
+          <LayoutGrid className="w-6 h-6 text-teal-500" />
+          <span>Dashboard</span>
+        </h1>
+        <p className="text-xs md:text-sm text-slate-400 mt-1">
+          Monitoreo en tiempo real de empresas, usuarios y volumen de IA en la plataforma SaaS.
+        </p>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs flex items-center space-x-2">
+        <div className="p-4 rounded-md bg-red-950/40 border border-red-900 text-red-300 text-xs flex items-center space-x-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="h-64 flex items-center justify-center text-slate-400 space-x-2">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-          <span className="text-xs">Cargando métricas de la plataforma...</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="surface-glass rounded-md p-5 h-[92px] animate-pulse" />
+          ))}
         </div>
       ) : (
         <>
-          {/* Métricas Principales */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Card 1: Empresas Activas */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Empresas Totales
+          {/* Métricas Principales: una sola tira dividida, no cuatro tarjetas repetidas */}
+          <div className="surface-glass rounded-md flex flex-col sm:flex-row divide-y divide-dashed divide-slate-700/50 sm:divide-y-0 sm:divide-x">
+            {/* Empresas Totales */}
+            <div className="flex-1 p-5">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+                Empresas Totales
+              </span>
+              <p className="mt-2 font-display text-4xl font-bold text-white leading-none">
+                {stats.totalBusinesses}
+              </p>
+              <div className="flex items-center flex-wrap gap-x-2 mt-1.5">
+                <span className="inline-flex items-center space-x-1 text-[11px] text-emerald-400 font-medium">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>{stats.activeBusinesses} activas</span>
                 </span>
-                <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                  <Building2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <p className="text-3xl font-extrabold text-white">{stats.totalBusinesses}</p>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className="inline-flex items-center space-x-1 text-[11px] text-emerald-400 font-medium">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>{stats.activeBusinesses} Activas</span>
+                {stats.suspendedBusinesses > 0 && (
+                  <span className="inline-flex items-center space-x-1 text-[11px] text-amber-400 font-medium">
+                    <AlertTriangle className="w-3 h-3" />
+                    <span>{stats.suspendedBusinesses} suspendidas</span>
                   </span>
-                  {stats.suspendedBusinesses > 0 && (
-                    <span className="inline-flex items-center space-x-1 text-[11px] text-amber-400 font-medium">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>{stats.suspendedBusinesses} Suspendidas</span>
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
             </div>
 
-            {/* Card 2: Usuarios Registrados */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Usuarios SaaS
-                </span>
-                <div className="p-2 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20">
-                  <Users className="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <p className="text-3xl font-extrabold text-white">{stats.totalProfiles}</p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Administradores de agencias y operadores
-                </p>
-              </div>
+            {/* Usuarios SaaS */}
+            <div className="flex-1 p-5">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+                Usuarios SaaS
+              </span>
+              <p className="mt-2 font-display text-4xl font-bold text-white leading-none">
+                {stats.totalProfiles}
+              </p>
+              <p className="mt-1.5 text-[11px] text-slate-500">administradores y operadores</p>
             </div>
 
-            {/* Card 3: Mensajes Procesados */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Mensajes de WhatsApp
-                </span>
-                <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-                  <MessageSquare className="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <p className="text-3xl font-extrabold text-white">{stats.totalMessages}</p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  {stats.totalConversations} conversaciones iniciadas
-                </p>
-              </div>
+            {/* Mensajes de WhatsApp */}
+            <div className="flex-1 p-5">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+                Mensajes WhatsApp
+              </span>
+              <p className="mt-2 font-display text-4xl font-bold text-white leading-none">
+                {stats.totalMessages}
+              </p>
+              <p className="mt-1.5 text-[11px] text-slate-500">{stats.totalConversations} conversaciones</p>
             </div>
 
-            {/* Card 4: Base de Conocimiento Global */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3 shadow-xl relative overflow-hidden">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Base de FAQs
-                </span>
-                <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
-                  <HelpCircle className="w-4 h-4" />
-                </div>
-              </div>
-              <div>
-                <p className="text-3xl font-extrabold text-white">{stats.totalFaqs}</p>
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Respuestas oficiales activas en Claude
-                </p>
-              </div>
+            {/* Base de FAQs */}
+            <div className="flex-1 p-5">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+                Base de FAQs
+              </span>
+              <p className="mt-2 font-display text-4xl font-bold text-white leading-none">
+                {stats.totalFaqs}
+              </p>
+              <p className="mt-1.5 text-[11px] text-slate-500">respuestas activas en Claude</p>
             </div>
           </div>
 
           {/* Sección de Estado del Servidor & Agencias Recientes */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Agencias Recientes */}
-            <div className="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
-              <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div className="lg:col-span-2 surface-glass rounded-md p-6 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
                 <div className="flex items-center space-x-2 text-white font-bold text-sm">
-                  <Building2 className="w-4 h-4 text-indigo-400" />
-                  <h2>Últimas Agencias Registradas</h2>
+                  <Building2 className="w-4 h-4 text-teal-500" />
+                  <h2 className="font-display">Últimas Agencias Registradas</h2>
                 </div>
                 <Link
                   to="/admin/businesses"
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-medium inline-flex items-center space-x-1"
+                  className="text-xs text-teal-400 hover:text-teal-300 font-medium inline-flex items-center space-x-1"
                 >
-                  <span>Ver todas</span>
+                  <span>Ver empresas</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -239,7 +200,7 @@ export const AdminDashboard = () => {
                   No hay empresas registradas aún.
                 </p>
               ) : (
-                <div className="divide-y divide-slate-800/60">
+                <div className="divide-y divide-slate-700/40">
                   {recentBusinesses.map((b) => (
                     <div key={b.id} className="py-3 flex items-center justify-between gap-3">
                       <div className="space-y-0.5">
@@ -251,7 +212,7 @@ export const AdminDashboard = () => {
 
                       <div className="flex items-center space-x-3">
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                             b.status === 'active'
                               ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -260,9 +221,9 @@ export const AdminDashboard = () => {
                           {b.status === 'active' ? 'Activo' : 'Suspendido'}
                         </span>
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${
+                          className={`text-[10px] px-2 py-0.5 rounded font-mono ${
                             b.whatsapp_phone_number_id
-                              ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                              ? 'bg-teal-500/10 text-teal-400 border border-teal-500/20'
                               : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}
                         >
@@ -276,11 +237,11 @@ export const AdminDashboard = () => {
             </div>
 
             {/* Estado del Sistema */}
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl flex flex-col justify-between">
+            <div className="surface-glass rounded-md p-6 space-y-4 flex flex-col justify-between">
               <div className="space-y-4">
-                <div className="flex items-center space-x-2 text-white font-bold text-sm border-b border-slate-800/80 pb-3">
+                <div className="flex items-center space-x-2 text-white font-bold text-sm border-b border-slate-700/50 pb-3">
                   <Server className="w-4 h-4 text-emerald-400" />
-                  <h2>Infraestructura Cloud</h2>
+                  <h2 className="font-display">Infraestructura Cloud</h2>
                 </div>
 
                 <div className="space-y-3">
@@ -296,7 +257,7 @@ export const AdminDashboard = () => {
 
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-400">Modelo de IA</span>
-                    <span className="font-semibold text-indigo-400">Claude 3.5 Sonnet</span>
+                    <span className="font-semibold text-teal-400">Claude 3.5 Sonnet</span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs">
@@ -311,10 +272,10 @@ export const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-between">
+              <div className="pt-4 border-t border-slate-700/50 text-[11px] text-slate-500 flex items-center justify-between">
                 <span>Versión SaaS: 1.0.0</span>
                 <span className="flex items-center space-x-1 text-emerald-400">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span>Sistemas Operativos</span>
                 </span>
               </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { CompanySwitcher } from './CompanySwitcher';
 import {
   MessageSquare,
   Bot,
@@ -10,10 +11,11 @@ import {
   Building2,
   Menu,
   X,
-  ShieldAlert,
+  LayoutGrid,
   LayoutDashboard,
-  ChevronDown,
-  Sparkles
+  ChevronLeft,
+  ChevronRight,
+  Compass
 } from 'lucide-react';
 
 export const Layout = () => {
@@ -27,6 +29,7 @@ export const Layout = () => {
     setSelectedBusinessId,
   } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -35,25 +38,49 @@ export const Layout = () => {
   };
 
   const crmNavItems = [
-    { name: 'Resumen CRM', path: '/crm', icon: LayoutDashboard },
-    { name: 'Inbox Chat (Live)', path: '/crm/inbox', icon: MessageSquare },
-    { name: 'Base de Clientes', path: '/crm/customers', icon: Users },
-    { name: 'Configuración Bot', path: '/crm/config', icon: Bot },
-    { name: 'Preguntas Frecuentes', path: '/crm/faqs', icon: HelpCircle },
+    { name: 'Resumen', path: '/crm', icon: LayoutDashboard },
+    { name: 'Inbox', path: '/crm/inbox', icon: MessageSquare },
+    { name: 'Clientes', path: '/crm/customers', icon: Users },
+    { name: 'Configuración bot', path: '/crm/config', icon: Bot },
+    { name: 'Preguntas frecuentes', path: '/crm/faqs', icon: HelpCircle },
   ];
 
   const adminNavItems = [
-    { name: 'Control Global', path: '/admin', icon: ShieldAlert },
-    { name: 'Empresas SaaS', path: '/admin/businesses', icon: Building2 },
+    { name: 'Dashboard', path: '/admin', icon: LayoutGrid },
+    { name: 'Empresas', path: '/admin/businesses', icon: Building2 },
   ];
 
+  // Clases del texto de un item de nav: colapsa en ancho/opacidad (no "hidden" abrupto)
+  const navLabelClass = `overflow-hidden whitespace-nowrap transition-all duration-200 ease-in-out max-w-[160px] opacity-100 ${
+    collapsed ? 'md:max-w-0 md:opacity-0' : ''
+  }`;
+
+  // Secciones full-row (títulos, selector) que se ocultan por completo al colapsar, sin dejar hueco
+  const collapsibleBlockClass = collapsed ? 'md:hidden' : '';
+
+  // Separador sutil entre grupos, solo visible en modo íconos
+  const railDividerClass = `mx-auto w-7 h-px bg-slate-800/80 hidden ${collapsed ? 'md:block' : ''}`;
+
+  const getNavLinkClass = (isActive, accent) => {
+    const activeBg = accent === 'orange' ? 'bg-orange-950/60 text-orange-300' : 'bg-teal-950/60 text-teal-300';
+    const activeBorder = accent === 'orange' ? 'border-orange-600' : 'border-teal-500';
+    const activeRing = accent === 'orange' ? 'md:ring-1 md:ring-orange-500/40' : 'md:ring-1 md:ring-teal-400/40';
+    return [
+      'group flex items-center gap-3 py-2.5 rounded-lg text-xs font-medium transition-all duration-200 border-l-2',
+      collapsed ? 'md:justify-center md:mx-auto md:gap-0 md:w-10 md:h-10 md:px-0 md:py-0 md:rounded-xl md:border-l-0' : 'px-3',
+      isActive
+        ? `${activeBg} ${activeBorder} font-semibold ${collapsed ? activeRing : ''}`
+        : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/60',
+    ].join(' ');
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
+    <div className="h-screen h-dvh overflow-hidden text-slate-100 flex flex-col md:flex-row">
       {/* Mobile Top Header */}
-      <div className="md:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between sticky top-0 z-40">
+      <div className="md:hidden flex-shrink-0 surface-glass p-4 flex items-center justify-between sticky top-0 z-40 rounded-none border-x-0 border-t-0">
         <div className="flex items-center space-x-2">
-          <Bot className="w-6 h-6 text-indigo-400" />
-          <span className="font-bold text-sm text-white">Vicka Bot SaaS</span>
+          <Compass className="w-6 h-6 text-teal-500" />
+          <span className="font-display font-bold text-sm text-white">Vicka Turismo</span>
         </div>
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -65,65 +92,52 @@ export const Layout = () => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between transform transition-transform duration-200 ease-in-out ${
+        className={`fixed md:relative inset-y-0 left-0 z-50 w-64 ${
+          collapsed ? 'md:w-20' : 'md:w-64'
+        } surface-glass rounded-none border-y-0 border-l-0 flex flex-col justify-between overflow-hidden transform transition-[width,transform] duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <div className="p-5 space-y-5 overflow-y-auto">
-          {/* Logo & Platform Info */}
-          <div className="flex items-center space-x-3 pb-3 border-b border-slate-800">
-            <div className="p-2.5 bg-gradient-to-tr from-indigo-600 to-indigo-400 rounded-xl text-white shadow-lg shadow-indigo-500/20">
-              <Bot className="w-5 h-5" />
-            </div>
-            <div className="overflow-hidden flex-1">
-              <h2 className="font-bold text-sm text-white truncate tracking-tight">
-                {isSuperAdmin ? 'Panel Super Admin' : businessName}
-              </h2>
-              <div className="flex items-center space-x-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-[10px] font-medium text-slate-400">
-                  {isSuperAdmin ? 'Acceso Total' : 'Business Admin'}
-                </span>
+        <div className={`p-5 overflow-y-auto overflow-x-hidden flex-1 transition-all duration-200 ${collapsed ? 'md:px-2 md:space-y-3 space-y-5' : 'space-y-5'}`}>
+          {/* Logo & Platform Info + Toggle (dentro del panel) */}
+          <div
+            className={`flex items-center pb-4 border-b border-slate-800/60 transition-all duration-200 ${
+              collapsed ? 'md:flex-col md:gap-3' : 'justify-between gap-3'
+            }`}
+          >
+            <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? 'md:justify-center md:gap-0' : ''}`}>
+              <div className="w-9 h-9 flex items-center justify-center bg-teal-600 rounded-md text-white flex-shrink-0 btn-neu">
+                <Compass className="w-4.5 h-4.5" />
+              </div>
+              <div className={navLabelClass}>
+                <h2 className="font-display font-bold text-sm text-white truncate tracking-tight">
+                  {isSuperAdmin ? 'Panel Super Admin' : businessName}
+                </h2>
+                <div className="flex items-center space-x-1.5 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0"></span>
+                  <span className="text-[10px] font-medium text-slate-400 truncate">
+                    {isSuperAdmin ? 'Acceso Total' : 'Business Admin'}
+                  </span>
+                </div>
               </div>
             </div>
+
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="hidden md:flex items-center justify-center w-6 h-6 rounded-full bg-slate-800/80 border border-slate-700/60 text-slate-400 hover:text-teal-400 hover:border-teal-600/60 transition-colors cursor-pointer flex-shrink-0"
+              title={collapsed ? 'Expandir panel' : 'Colapsar panel'}
+            >
+              {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+            </button>
           </div>
 
-          {/* Super Admin: Selector de Empresa Activa (Modo Impersonación) */}
-          {isSuperAdmin && (
-            <div className="p-3 bg-slate-950/80 border border-indigo-500/30 rounded-xl space-y-2 shadow-inner">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-indigo-300">
-                <span className="flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-indigo-400" />
-                  <span>Empresa Activa (CRM):</span>
-                </span>
-                <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 rounded font-mono">
-                  {businesses.length}
-                </span>
-              </div>
-              <div className="relative">
-                <select
-                  value={selectedBusinessId || ''}
-                  onChange={(e) => setSelectedBusinessId(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-xs text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer appearance-none pr-7 font-medium"
-                >
-                  {businesses.map((biz) => (
-                    <option key={biz.id} value={biz.id} className="bg-slate-900 text-white">
-                      🏢 {biz.name} {biz.status !== 'active' ? `(${biz.status})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
-              </div>
-            </div>
-          )}
-
           {/* Navigation Links */}
-          <div className="space-y-4">
-            {/* Super Admin Section (si aplica) */}
+          <div className={collapsed ? 'md:space-y-1.5 space-y-4' : 'space-y-4'}>
+            {/* Sección General: navegación global del SaaS */}
             {isSuperAdmin && (
-              <div className="space-y-1">
-                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                  Gestión SaaS
+              <div className={collapsed ? 'md:space-y-1.5 space-y-1' : 'space-y-1'}>
+                <div className={`px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 ${collapsibleBlockClass}`}>
+                  General
                 </div>
                 {adminNavItems.map((item) => {
                   const Icon = item.icon;
@@ -132,31 +146,45 @@ export const Layout = () => {
                       key={item.path}
                       to={item.path}
                       end
+                      title={item.name}
                       onClick={() => setSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        `flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                          isActive
-                            ? 'bg-purple-600/90 text-white shadow-lg shadow-purple-600/20 font-semibold'
-                            : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                        }`
-                      }
+                      className={({ isActive }) => getNavLinkClass(isActive, 'orange')}
                     >
-                      <Icon className="w-4 h-4 flex-shrink-0" />
-                      <span>{item.name}</span>
+                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      <span className={navLabelClass}>{item.name}</span>
                     </NavLink>
                   );
                 })}
               </div>
             )}
 
-            {/* CRM Modules Section */}
-            <div className="space-y-1">
+            {isSuperAdmin && <div className={railDividerClass} />}
+
+            {/* Sección Empresa: contexto de la empresa activa */}
+            <div className={collapsed ? 'md:space-y-1.5 space-y-1' : 'space-y-1'}>
               {isSuperAdmin && (
-                <div className="px-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center justify-between">
-                  <span>Módulos del Cliente</span>
-                  <span className="text-[9px] text-slate-400 font-normal truncate max-w-[90px]">
-                    ({businessName})
-                  </span>
+                <div className={`px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 ${collapsibleBlockClass}`}>
+                  Empresa
+                </div>
+              )}
+              {isSuperAdmin && (
+                <div className={`pb-2 ${collapsibleBlockClass}`}>
+                  <CompanySwitcher
+                    businesses={businesses}
+                    selectedBusinessId={selectedBusinessId}
+                    onSelect={setSelectedBusinessId}
+                    collapsed={false}
+                  />
+                </div>
+              )}
+              {isSuperAdmin && collapsed && (
+                <div className="hidden md:flex justify-center pb-2">
+                  <CompanySwitcher
+                    businesses={businesses}
+                    selectedBusinessId={selectedBusinessId}
+                    onSelect={setSelectedBusinessId}
+                    collapsed={true}
+                  />
                 </div>
               )}
               {crmNavItems.map((item) => {
@@ -166,17 +194,12 @@ export const Layout = () => {
                     key={item.path}
                     to={item.path}
                     end={item.path === '/crm'}
+                    title={item.name}
                     onClick={() => setSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center space-x-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-                        isActive
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 font-semibold'
-                          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                      }`
-                    }
+                    className={({ isActive }) => getNavLinkClass(isActive, 'teal')}
                   >
-                    <Icon className="w-4 h-4 flex-shrink-0" />
-                    <span>{item.name}</span>
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className={navLabelClass}>{item.name}</span>
                   </NavLink>
                 );
               })}
@@ -185,12 +208,12 @@ export const Layout = () => {
         </div>
 
         {/* User Info & Logout Button */}
-        <div className="p-3.5 m-3 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-2.5">
-          <div className="flex items-center space-x-2.5 overflow-hidden">
-            <div className="w-7 h-7 bg-indigo-500/20 border border-indigo-500/30 rounded-full flex items-center justify-center text-xs font-bold text-indigo-300 flex-shrink-0">
+        <div className={`surface-well rounded-md transition-all duration-200 ${collapsed ? 'md:mx-2 md:mb-3 md:mt-0 md:p-2 md:flex md:flex-col md:items-center md:gap-2 m-3' : 'm-3 p-3.5 space-y-2.5'}`}>
+          <div className={`flex items-center overflow-hidden transition-all duration-200 ${collapsed ? 'md:justify-center md:gap-0 gap-2.5' : 'gap-2.5'}`}>
+            <div className="w-7 h-7 bg-slate-800 border border-slate-700 rounded-full flex items-center justify-center text-xs font-bold text-teal-400 flex-shrink-0">
               {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
             </div>
-            <div className="overflow-hidden flex-1">
+            <div className={navLabelClass}>
               <p className="text-xs font-semibold text-slate-200 truncate">
                 {profile?.full_name || 'Usuario'}
               </p>
@@ -200,16 +223,19 @@ export const Layout = () => {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-medium py-1.5 px-3 rounded-lg transition-all cursor-pointer"
+            title="Cerrar Sesión"
+            className={`flex items-center justify-center gap-1.5 bg-transparent hover:bg-red-950/40 text-red-400 border border-red-900/60 text-xs font-medium rounded-md transition-all duration-200 cursor-pointer ${
+              collapsed ? 'md:w-9 md:h-9 md:p-0 md:gap-0 md:rounded-xl w-full py-1.5' : 'w-full py-1.5 px-3'
+            }`}
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Cerrar Sesión</span>
+            <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
+            <span className={navLabelClass}>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 bg-slate-950 min-h-screen overflow-y-auto p-5 md:p-8">
+      <main className="flex-1 min-h-0 overflow-y-auto scroll-stable p-5 md:p-8">
         <Outlet />
       </main>
     </div>

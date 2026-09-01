@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Bot, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Compass, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export const Login = () => {
   const [email, setEmail] = useState('');
@@ -32,73 +32,86 @@ export const Login = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none" />
+      {/* Textura de fondo: líneas finas tipo mapa de ruta, no blobs difuminados */}
+      <div
+        className="absolute inset-0 opacity-[0.05] pointer-events-none"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(115deg, transparent, transparent 68px, rgb(45 212 191) 68px, rgb(45 212 191) 69px)',
+        }}
+      />
 
-      <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 backdrop-blur-xl rounded-2xl p-8 shadow-2xl relative z-10 space-y-6">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-indigo-400 mb-2">
-            <Bot className="w-8 h-8" />
+      <div className="max-w-md w-full surface-glass rounded-lg relative z-10">
+        <div className="text-center px-8 pt-8 pb-6 space-y-2">
+          <div className="inline-flex items-center justify-center w-11 h-11 bg-teal-600 rounded-md text-white mb-2 btn-neu">
+            <Compass className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            Plataforma SaaS IA
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white">
+            Vicka Turismo
           </h1>
           <p className="text-sm text-slate-400">
-            Ingresá a tu CRM de WhatsApp y Gestión de Agentes
+            Consola de operación · CRM de WhatsApp
           </p>
         </div>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3.5 flex items-start space-x-3 text-red-400 text-xs leading-relaxed">
-            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-            <span>{error}</span>
-          </div>
-        )}
+        {/* Perforación estilo boarding pass separando encabezado del formulario */}
+        <div className="relative border-t border-dashed border-slate-700">
+          <span className="absolute -left-3 -top-2 w-4 h-4 rounded-full bg-slate-950" />
+          <span className="absolute -right-3 -top-2 w-4 h-4 rounded-full bg-slate-950" />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 ml-1">Correo Electrónico</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@empresa.com"
-                className="w-full bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 transition-all outline-none"
-              />
+        <div className="p-8 pt-6 space-y-5">
+          {error && (
+            <div className="bg-red-950/50 border border-red-900 rounded-md p-3.5 flex items-start space-x-3 text-red-400 text-xs leading-relaxed">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
-          </div>
+          )}
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-300 ml-1">Contraseña</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-slate-950/70 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 transition-all outline-none"
-              />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 ml-1">Correo Electrónico</label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@empresa.com"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 transition-colors outline-none"
+                />
+              </div>
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-300 ml-1">Contraseña</label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 transition-colors outline-none"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-2.5 px-4 rounded-md text-sm transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2 btn-neu"
+            >
+              <span>{isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}</span>
+              {!isSubmitting && <ArrowRight className="w-4 h-4" />}
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-slate-800 text-center text-[11px] font-mono text-slate-500">
+            ACCESO PROTEGIDO · SUPABASE AUTH + RLS
           </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-          >
-            <span>{isSubmitting ? 'Iniciando sesión...' : 'Iniciar Sesión'}</span>
-            {!isSubmitting && <ArrowRight className="w-4 h-4" />}
-          </button>
-        </form>
-
-        <div className="pt-4 border-t border-slate-800/80 text-center text-xs text-slate-500">
-          Acceso protegido por Supabase Auth & RLS
         </div>
       </div>
     </div>

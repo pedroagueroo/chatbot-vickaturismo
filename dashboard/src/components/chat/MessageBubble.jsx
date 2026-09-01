@@ -9,12 +9,12 @@ export const MessageBubble = ({ message }) => {
   return (
     <div className={`flex w-full ${isUser ? 'justify-start' : 'justify-end'} mb-3`}>
       <div
-        className={`max-w-[75%] md:max-w-[65%] rounded-2xl p-3.5 shadow-sm text-xs md:text-sm leading-relaxed space-y-1 ${
+        className={`max-w-[75%] md:max-w-[65%] rounded-lg p-3.5 text-xs md:text-sm leading-relaxed space-y-1 border backdrop-blur-md shadow-lg ${
           isUser
-            ? 'bg-slate-800 border border-slate-700/80 text-slate-100 rounded-tl-none'
+            ? 'bg-slate-800/60 border-slate-600/40 text-slate-100 rounded-tl-sm shadow-black/20'
             : isHumanAgent
-            ? 'bg-indigo-700 border border-indigo-500/80 text-white rounded-tr-none shadow-indigo-900/30'
-            : 'bg-indigo-600 border border-indigo-500/50 text-white rounded-tr-none'
+            ? 'bg-orange-700/55 border-orange-500/40 text-white rounded-tr-sm shadow-orange-950/40'
+            : 'bg-teal-600/55 border-teal-400/40 text-white rounded-tr-sm shadow-teal-950/40'
         }`}
       >
         <div className="flex items-center space-x-1.5 opacity-80 text-[10px] font-semibold tracking-wide uppercase mb-1">
@@ -25,13 +25,13 @@ export const MessageBubble = ({ message }) => {
             </>
           ) : isHumanAgent ? (
             <>
-              <UserCheck className="w-3 h-3 text-amber-300" />
-              <span className="text-amber-300">Agente Humano</span>
+              <UserCheck className="w-3 h-3 text-orange-200" />
+              <span className="text-orange-200">Agente Humano</span>
             </>
           ) : (
             <>
-              <Bot className="w-3 h-3 text-indigo-200" />
-              <span className="text-indigo-200">Asistente IA</span>
+              <Bot className="w-3 h-3 text-teal-200" />
+              <span className="text-teal-200">Asistente IA</span>
             </>
           )}
         </div>

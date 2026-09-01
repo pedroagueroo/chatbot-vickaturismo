@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
@@ -17,12 +17,13 @@ import {
   ShieldCheck,
   ShieldAlert,
   Power,
-  ExternalLink
+  ArrowRight
 } from 'lucide-react';
 
 export const BusinessesList = () => {
   const { setSelectedBusinessId } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [businesses, setBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,6 +42,14 @@ export const BusinessesList = () => {
 
   useEffect(() => {
     fetchBusinesses();
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1') {
+      openModal();
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchBusinesses = async () => {
@@ -211,9 +220,9 @@ export const BusinessesList = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
-            <Building2 className="w-6 h-6 text-indigo-400" />
-            <span>Gestión de Empresas SaaS (Clientes)</span>
+          <h1 className="font-display text-xl md:text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
+            <Building2 className="w-6 h-6 text-teal-500" />
+            <span>Empresas</span>
           </h1>
           <p className="text-xs md:text-sm text-slate-400 mt-1">
             Da de alta nuevas agencias de turismo, gestioná estados de suscripción y tokens de WhatsApp.
@@ -222,14 +231,12 @@ export const BusinessesList = () => {
 
         <button
           onClick={() => openModal()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-2 flex-shrink-0"
+          className="bg-teal-600 hover:bg-teal-500 text-white font-medium py-2 px-4 rounded-md text-xs md:text-sm transition-colors flex items-center space-x-2 flex-shrink-0 btn-neu"
         >
           <Plus className="w-4 h-4" />
-          <span>Nueva Empresa</span>
+          <span>Nueva empresa</span>
         </button>
       </div>
-
-
 
       {/* Barra de Búsqueda y Filtros */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -240,7 +247,7 @@ export const BusinessesList = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar por nombre de empresa o ID..."
-            className="w-full bg-slate-900 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl py-2 pl-10 pr-4 text-xs md:text-sm text-slate-100 placeholder-slate-500 outline-none transition-all"
+            className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md py-2 pl-10 pr-4 text-xs md:text-sm text-slate-100 placeholder-slate-500 outline-none transition-colors"
           />
         </div>
 
@@ -249,9 +256,9 @@ export const BusinessesList = () => {
             <button
               key={st}
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all ${
+              className={`px-3 py-1.5 rounded text-xs font-medium capitalize transition-colors ${
                 statusFilter === st
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  ? 'bg-teal-600 text-white'
                   : 'bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
@@ -263,25 +270,26 @@ export const BusinessesList = () => {
 
       {/* Tabla de Empresas */}
       {loading ? (
-        <div className="h-64 flex items-center justify-center text-slate-400 space-x-2">
-          <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
-          <span className="text-xs">Cargando empresas cliente...</span>
+        <div className="surface-glass rounded-md p-4 space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="h-12 rounded bg-slate-800/40 animate-pulse" />
+          ))}
         </div>
       ) : filteredBusinesses.length === 0 ? (
-        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-12 text-center space-y-3">
+        <div className="surface-glass rounded-md p-12 text-center space-y-3">
           <Building2 className="w-10 h-10 mx-auto text-slate-600 opacity-50" />
           <p className="text-sm text-slate-300 font-medium">No se encontraron empresas</p>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             {searchQuery
               ? 'Probá ajustando el término de búsqueda.'
-              : 'Hacé clic en "Nueva Empresa" para sumar tu primer cliente a la plataforma.'}
+              : 'Hacé clic en "Nueva empresa" para sumar tu primer cliente a la plataforma.'}
           </p>
         </div>
       ) : (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        <div className="surface-glass rounded-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs md:text-sm">
-              <thead className="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
+              <thead className="bg-slate-950/40 border-b border-slate-700/50 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
                 <tr>
                   <th className="py-3.5 px-4">Empresa (Tenant)</th>
                   <th className="py-3.5 px-4">Estado Suscripción</th>
@@ -290,9 +298,9 @@ export const BusinessesList = () => {
                   <th className="py-3.5 px-4 text-right">Acciones</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-200">
+              <tbody className="divide-y divide-slate-700/40 text-slate-200">
                 {filteredBusinesses.map((biz) => (
-                  <tr key={biz.id} className="hover:bg-slate-800/30 transition-colors">
+                  <tr key={biz.id} className="hover:bg-slate-700/20 transition-colors">
                     {/* Nombre e ID */}
                     <td className="py-4 px-4 space-y-0.5">
                       <div className="font-bold text-white flex items-center space-x-2">
@@ -306,7 +314,7 @@ export const BusinessesList = () => {
                     {/* Estado */}
                     <td className="py-4 px-4">
                       <span
-                        className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold ${
+                        className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-bold ${
                           biz.status === 'active'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                             : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -330,7 +338,7 @@ export const BusinessesList = () => {
                     <td className="py-4 px-4">
                       {biz.whatsapp_phone_number_id ? (
                         <div className="space-y-0.5">
-                          <span className="inline-flex items-center space-x-1 text-xs text-indigo-400 font-mono">
+                          <span className="inline-flex items-center space-x-1 text-xs text-teal-400 font-mono">
                             <Key className="w-3 h-3" />
                             <span>ID: {biz.whatsapp_phone_number_id}</span>
                           </span>
@@ -360,16 +368,16 @@ export const BusinessesList = () => {
                             toast.success(`Accediendo al panel de "${biz.name}"`);
                             navigate('/crm');
                           }}
-                          title={`Gestionar CRM de ${biz.name}`}
-                          className="px-2.5 py-1 bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 hover:text-white rounded-lg text-xs font-medium transition-all flex items-center space-x-1 cursor-pointer mr-1"
+                          title={`Abrir el panel de ${biz.name}`}
+                          className="px-2.5 py-1 bg-teal-600/20 hover:bg-teal-600 border border-teal-500/30 hover:border-teal-500 text-teal-300 hover:text-white rounded text-xs font-medium transition-colors flex items-center space-x-1 cursor-pointer mr-1"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Ver CRM</span>
+                          <span className="hidden sm:inline">Abrir empresa</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleToggleStatus(biz)}
                           title={biz.status === 'active' ? 'Suspender Empresa' : 'Activar Empresa'}
-                          className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                          className={`p-1.5 rounded transition-colors cursor-pointer ${
                             biz.status === 'active'
                               ? 'text-amber-400 hover:bg-amber-500/10'
                               : 'text-emerald-400 hover:bg-emerald-500/10'
@@ -380,14 +388,14 @@ export const BusinessesList = () => {
                         <button
                           onClick={() => openModal(biz)}
                           title="Editar Datos"
-                          className="p-1.5 text-slate-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 rounded transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteBusiness(biz)}
                           title="Eliminar Empresa"
-                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -404,15 +412,15 @@ export const BusinessesList = () => {
       {/* Modal para Crear / Editar Empresa */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-base font-bold text-white flex items-center space-x-2">
-                <Building2 className="w-5 h-5 text-indigo-400" />
+          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
+              <h2 className="font-display text-base font-bold text-white flex items-center space-x-2">
+                <Building2 className="w-5 h-5 text-teal-500" />
                 <span>{editingBusiness ? 'Editar Empresa' : 'Registrar Nueva Empresa'}</span>
               </h2>
               <button
                 onClick={closeModal}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -429,7 +437,7 @@ export const BusinessesList = () => {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Ej: Destinos Mundiales SRL"
                   required
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none transition-all"
                 />
               </div>
 
@@ -440,15 +448,15 @@ export const BusinessesList = () => {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-xs md:text-sm text-slate-100 outline-none transition-all"
+                  className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-3.5 py-2 text-xs md:text-sm text-slate-100 outline-none transition-all"
                 >
                   <option value="active">Activo (Acceso habilitado)</option>
                   <option value="suspended">Suspendido (Bloqueado por falta de pago)</option>
                 </select>
               </div>
 
-              <div className="pt-2 border-t border-slate-800/80 space-y-3">
-                <div className="flex items-center space-x-1.5 text-xs text-indigo-400 font-semibold">
+              <div className="pt-2 border-t border-slate-700/50 space-y-3">
+                <div className="flex items-center space-x-1.5 text-xs text-teal-400 font-semibold">
                   <Key className="w-3.5 h-3.5" />
                   <span>Credenciales de WhatsApp Cloud API (Opcional por ahora)</span>
                 </div>
@@ -464,7 +472,7 @@ export const BusinessesList = () => {
                       setFormData({ ...formData, whatsapp_phone_number_id: e.target.value })
                     }
                     placeholder="Ej: 1140146155842603"
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
+                    className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
                   />
                 </div>
 
@@ -479,23 +487,23 @@ export const BusinessesList = () => {
                       setFormData({ ...formData, whatsapp_access_token: e.target.value })
                     }
                     placeholder="EAAYXMG..."
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-xl px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
+                    className="w-full surface-well focus:border-teal-600 focus:ring-1 focus:ring-teal-600 rounded-md px-3.5 py-2 text-xs md:text-sm text-slate-100 placeholder-slate-600 outline-none font-mono transition-all"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-700/50">
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  className="px-4 py-2 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-medium py-2 px-5 rounded-xl text-xs md:text-sm transition-all shadow-lg shadow-indigo-600/20 flex items-center space-x-2"
+                  className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium py-2 px-5 rounded-md text-xs md:text-sm transition-colors flex items-center space-x-2 btn-neu"
                 >
                   {saving ? (
                     <>
