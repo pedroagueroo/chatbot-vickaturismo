@@ -1,6 +1,49 @@
 import React from 'react';
 import { formatMessageTime } from '../../utils/dateFormatter';
-import { Bot, User, UserCheck } from 'lucide-react';
+import { Bot, User, UserCheck, FileText, Download } from 'lucide-react';
+
+const MediaContent = ({ message }) => {
+  if (!message.media_type) return null;
+
+  if (message.media_type === 'image') {
+    return (
+      <a href={message.media_url} target="_blank" rel="noopener noreferrer">
+        <img
+          src={message.media_url}
+          alt={message.file_name || 'Imagen'}
+          className="rounded-md max-w-full max-h-72 object-cover border border-white/10"
+        />
+      </a>
+    );
+  }
+
+  if (message.media_type === 'audio') {
+    return (
+      <audio controls src={message.media_url} className="w-full max-w-[260px] h-9">
+        Tu navegador no soporta audio.
+      </audio>
+    );
+  }
+
+  if (message.media_type === 'document') {
+    return (
+      <a
+        href={message.media_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center space-x-2.5 bg-black/20 hover:bg-black/30 border border-white/10 rounded-md p-2.5 transition-colors"
+      >
+        <FileText className="w-6 h-6 flex-shrink-0 opacity-80" />
+        <span className="text-xs font-medium truncate flex-1">
+          {message.file_name || 'Documento adjunto'}
+        </span>
+        <Download className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+      </a>
+    );
+  }
+
+  return null;
+};
 
 export const MessageBubble = ({ message }) => {
   const isUser = message.role === 'user';
@@ -36,7 +79,15 @@ export const MessageBubble = ({ message }) => {
           )}
         </div>
 
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {message.media_type && (
+          <div className="pb-1">
+            <MediaContent message={message} />
+          </div>
+        )}
+
+        {message.content && (
+          <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        )}
 
         <div className="flex justify-end items-center text-[10px] opacity-70 pt-0.5 space-x-1">
           <span>{formatMessageTime(message.created_at)}</span>

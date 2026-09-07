@@ -12,6 +12,7 @@ import { Inbox } from './pages/crm/Inbox';
 import { CustomersList } from './pages/crm/CustomersList';
 import { BotSettings } from './pages/crm/BotSettings';
 import { Faqs } from './pages/crm/Faqs';
+import { MediaLibrary } from './pages/crm/MediaLibrary';
 
 // Admin Pages
 import { AdminDashboard } from './pages/admin/AdminDashboard';
@@ -34,6 +35,7 @@ function App() {
               <Route path="/crm/customers" element={<CustomersList />} />
               <Route path="/crm/config" element={<BotSettings />} />
               <Route path="/crm/faqs" element={<Faqs />} />
+              <Route path="/crm/media" element={<MediaLibrary />} />
             </Route>
           </Route>
 

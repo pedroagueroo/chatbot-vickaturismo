@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendWhatsAppMessage } from "../_shared/whatsapp.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,17 +13,29 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
+const VALID_MEDIA_TYPES = ['image', 'audio', 'document'];
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    const { conversation_id, content } = await req.json();
+    const { conversation_id, content, media_url, media_type, file_name } = await req.json();
 
-    if (!conversation_id || !content?.trim()) {
+    const caption = (content || '').trim();
+    const hasMedia = !!media_url;
+
+    if (!conversation_id || (!caption && !hasMedia)) {
       return new Response(
-        JSON.stringify({ error: 'Faltan parámetros: conversation_id y content' }),
+        JSON.stringify({ error: 'Faltan parámetros: conversation_id y (content o media_url)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (hasMedia && !VALID_MEDIA_TYPES.includes(media_type)) {
+      return new Response(
+        JSON.stringify({ error: `media_type inválido. Debe ser uno de: ${VALID_MEDIA_TYPES.join(', ')}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -72,31 +85,16 @@ serve(async (req) => {
       );
     }
 
-    // 2. Normalizar número de teléfono (Hack Argentina: quitar el 9 de 549 si corresponde)
-    let replyPhone = customer.phone;
-    if (replyPhone.startsWith('549') && replyPhone.length === 13) {
-      replyPhone = '54' + replyPhone.substring(3);
-    }
-
-    // 3. Enviar mensaje a Meta WhatsApp Cloud API
-    const metaRes = await fetch(
-      `https://graph.facebook.com/v19.0/${business.whatsapp_phone_number_id}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${business.whatsapp_access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: replyPhone,
-          type: 'text',
-          text: { body: content.trim() },
-        }),
-      }
+    // 2. Enviar mensaje a Meta WhatsApp Cloud API (texto o adjunto)
+    const metaData = await sendWhatsAppMessage(
+      business.whatsapp_phone_number_id,
+      business.whatsapp_access_token,
+      customer.phone,
+      hasMedia
+        ? { type: media_type, mediaUrl: media_url, caption, fileName: file_name }
+        : { type: 'text', text: caption }
     );
 
-    const metaData = await metaRes.json();
     console.log('Respuesta de Meta al enviar mensaje de agente:', metaData);
 
     if (metaData.error) {
@@ -107,7 +105,7 @@ serve(async (req) => {
       );
     }
 
-    // 4. Guardar el mensaje en la base de datos con intent = 'human_agent'
+    // 3. Guardar el mensaje en la base de datos con intent = 'human_agent'
     const { data: savedMsg, error: msgError } = await supabase
       .from('messages')
       .insert({
@@ -115,8 +113,9 @@ serve(async (req) => {
         conversation_id: conversation.id,
         role: 'assistant',
         intent: 'human_agent',
-        content: content.trim(),
+        content: caption,
         platform_msg_id: metaData?.messages?.[0]?.id || null,
+        ...(hasMedia ? { media_url, media_type, file_name: file_name || null } : {}),
       })
       .select()
       .single();
@@ -125,7 +124,7 @@ serve(async (req) => {
       console.error('Error guardando mensaje en DB:', msgError);
     }
 
-    // 5. Si la conversación no estaba escalada, la marcamos como escalada
+    // 4. Si la conversación no estaba escalada, la marcamos como escalada
     if (conversation.status !== 'escalated') {
       await supabase
         .from('conversations')

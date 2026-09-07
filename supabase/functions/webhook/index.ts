@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Anthropic from "npm:@anthropic-ai/sdk";
+import { sendWhatsAppMessage } from "../_shared/whatsapp.ts";
 
 // Helper para responder rápido a Meta y evitar timeouts
 const corsHeaders = {
@@ -179,27 +180,8 @@ async function verifyMetaSignature(rawBody: string, signatureHeader: string | nu
 }
 
 // Envía un mensaje de texto simple por WhatsApp (Meta Graph API)
-async function sendWhatsAppText(phoneId: string, token: string, toRaw: string, text: string) {
-  // HACK ARGENTINA: Meta Sandbox odia el '9'.
-  let to = toRaw;
-  if (to.startsWith('549') && to.length === 13) {
-    to = '54' + to.substring(3);
-  }
-
-  const res = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      to,
-      type: 'text',
-      text: { body: text },
-    }),
-  });
-  return res.json();
+async function sendWhatsAppText(phoneId: string, token: string, to: string, text: string) {
+  return sendWhatsAppMessage(phoneId, token, to, { type: 'text', text });
 }
 
 serve(async (req) => {
@@ -401,6 +383,20 @@ serve(async (req) => {
         faqsText += `Q: ${f.question}\nA: ${f.answer}\n\n`;
       });
 
+      const { data: mediaLibraryData } = await supabase
+        .from('media_library')
+        .select('id, name, description, media_type')
+        .eq('business_id', businessId)
+        .eq('is_active', true);
+
+      let mediaLibraryText = '';
+      if (mediaLibraryData && mediaLibraryData.length > 0) {
+        mediaLibraryText = 'Archivos disponibles para adjuntar (usá la tool send_media_file cuando corresponda):\n';
+        mediaLibraryData.forEach(m => {
+          mediaLibraryText += `- id: ${m.id} | tipo: ${m.media_type} | nombre: ${m.name}${m.description ? ` | descripción: ${m.description}` : ''}\n`;
+        });
+      }
+
       // ========================================================
       // LLAMADA A ANTHROPIC (CLAUDE)
       // ========================================================
@@ -453,14 +449,18 @@ ${customerCrmContext}
 Información de la empresa (FAQs):
 ${faqsText}
 
+${mediaLibraryText}
+
 Información de contacto adicional: ${JSON.stringify(config?.contact_info || {})}
 
 Si el usuario pregunta algo que no sabes o pide hablar con un humano, indícaselo cortésmente, y el sistema escalará el chat.
 Reglas:
 - Nunca inventes promociones o precios que no estén en las FAQs.
-- Responde siempre de manera concisa (máximo 2-3 párrafos cortos).`;
+- Responde siempre de manera concisa (máximo 2-3 párrafos cortos).
+- Si el usuario pide (o claramente se beneficiaría de) una foto, un audio o un documento que figure en la lista de archivos disponibles, usá la tool send_media_file con el id exacto del archivo. Nunca inventes un id que no esté en la lista.`;
 
       let aiResponse = "Lo siento, tuve un problema procesando tu mensaje. ¿Podrías repetirlo?";
+      let mediaToSend: { id: string } | null = null;
 
       try {
         const claudeResp = await anthropic.messages.create({
@@ -468,30 +468,106 @@ Reglas:
           max_tokens: 300,
           system: systemPrompt,
           messages: formattedHistory,
+          tools: [
+            {
+              name: 'send_media_file',
+              description: 'Adjunta y envía un archivo (foto, audio o documento) de la biblioteca de la empresa al cliente por WhatsApp.',
+              input_schema: {
+                type: 'object',
+                properties: {
+                  media_id: {
+                    type: 'string',
+                    description: 'El id exacto del archivo a enviar, tal como aparece en la lista de archivos disponibles.',
+                  },
+                },
+                required: ['media_id'],
+              },
+            },
+          ],
         });
-        
-        aiResponse = claudeResp.content[0].text;
+
+        const textBlock = claudeResp.content.find((b: any) => b.type === 'text');
+        aiResponse = textBlock?.text || '';
+
+        const toolUseBlock = claudeResp.content.find(
+          (b: any) => b.type === 'tool_use' && b.name === 'send_media_file'
+        );
+        if (toolUseBlock?.input?.media_id) {
+          mediaToSend = { id: toolUseBlock.input.media_id };
+        }
       } catch (claudeError) {
         console.error("Error llamando a Claude:", claudeError);
       }
 
       // ========================================================
-      // RESPONDER A WHATSAPP (META API)
+      // RESOLVER Y ENVIAR ARCHIVO ADJUNTO (SI CLAUDE LO PIDIÓ)
       // ========================================================
-      if (whatsappToken && aiResponse) {
-        const metaResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
-        console.log("Respuesta de Meta API:", metaResJson);
+      let mediaItem: any = null;
+      if (mediaToSend) {
+        const { data: foundMedia } = await supabase
+          .from('media_library')
+          .select('*')
+          .eq('id', mediaToSend.id)
+          .eq('business_id', businessId)
+          .eq('is_active', true)
+          .single();
+        mediaItem = foundMedia || null;
+        if (!mediaItem) {
+          console.error('El bot pidió enviar un media_id que no existe o no está activo:', mediaToSend.id);
+          if (!aiResponse) {
+            aiResponse = 'Quería enviarte un archivo, pero tuve un problema encontrándolo. ¿Podrías repetirme tu consulta?';
+          }
+        }
       }
 
       // ========================================================
-      // GUARDAR RESPUESTA DEL BOT
+      // RESPONDER A WHATSAPP (META API)
       // ========================================================
-      await supabase.from('messages').insert({
-        business_id: businessId,
-        conversation_id: conversation.id,
-        role: 'assistant',
-        content: aiResponse
-      });
+      if (whatsappToken && mediaItem) {
+        const supportsCaption = mediaItem.media_type !== 'audio';
+        const metaResJson = await sendWhatsAppMessage(phoneId, whatsappToken, userPhone, {
+          type: mediaItem.media_type,
+          mediaUrl: mediaItem.file_url,
+          fileName: mediaItem.file_name,
+          ...(supportsCaption && aiResponse ? { caption: aiResponse } : {}),
+        });
+        console.log('Respuesta de Meta API (media):', metaResJson);
+
+        await supabase.from('messages').insert({
+          business_id: businessId,
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: supportsCaption ? aiResponse : '',
+          media_url: mediaItem.file_url,
+          media_type: mediaItem.media_type,
+          file_name: mediaItem.file_name,
+        });
+
+        // El audio no soporta caption en WhatsApp: si había texto, se manda aparte.
+        if (!supportsCaption && aiResponse) {
+          const textResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
+          console.log('Respuesta de Meta API (texto tras audio):', textResJson);
+          await supabase.from('messages').insert({
+            business_id: businessId,
+            conversation_id: conversation.id,
+            role: 'assistant',
+            content: aiResponse,
+          });
+        }
+      } else if (whatsappToken && aiResponse) {
+        const metaResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
+        console.log("Respuesta de Meta API:", metaResJson);
+
+        // ========================================================
+        // GUARDAR RESPUESTA DEL BOT
+        // ========================================================
+        await supabase.from('messages').insert({
+          business_id: businessId,
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: aiResponse
+        });
+      }
 
       return new Response('EVENT_RECEIVED', { status: 200 });
 

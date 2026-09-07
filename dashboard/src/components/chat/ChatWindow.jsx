@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
-import { Send, UserCheck, Bot, Phone } from 'lucide-react';
+import { Send, UserCheck, Bot, Phone, Paperclip, Image, FileText, Loader2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -8,9 +8,25 @@ import toast from 'react-hot-toast';
 // "está al pie" del chat y por lo tanto es seguro autoscrollear ante nuevos mensajes.
 const AUTO_SCROLL_THRESHOLD = 120;
 
+// Tipos de archivo aceptados para adjuntar (deben coincidir con allowed_mime_types del bucket chat-media)
+const ACCEPTED_FILE_TYPES = 'image/jpeg,image/png,audio/mpeg,audio/ogg,audio/aac,audio/amr,audio/mp4,application/pdf';
+
+function mediaTypeFromMime(mimeType) {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (mimeType === 'application/pdf') return 'document';
+  return null;
+}
+
 export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryItems, setLibraryItems] = useState([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const shouldAutoScrollRef = useRef(true);
@@ -85,6 +101,108 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
     }
   };
 
+  const sendMedia = async ({ media_url, media_type, file_name }) => {
+    const caption = inputText.trim();
+    setInputText('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-message', {
+        body: {
+          conversation_id: conversation.id,
+          content: caption,
+          media_url,
+          media_type,
+          file_name,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        console.error('Error desde Edge Function:', data.error, data.details);
+        toast.error(`Error al enviar archivo: ${data.error}`);
+      } else {
+        toast.success('Archivo enviado a WhatsApp');
+      }
+
+      if (!isEscalated) {
+        await onToggleEscalate(conversation.id, 'escalated');
+      }
+    } catch (err) {
+      console.error('Error enviando archivo:', err);
+      toast.error(`Error de conexión al enviar: ${err.message || 'Error desconocido'}`);
+    }
+  };
+
+  const handleFileSelected = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // permite re-seleccionar el mismo archivo más adelante
+    if (!file) return;
+
+    const media_type = mediaTypeFromMime(file.type);
+    if (!media_type) {
+      toast.error('Tipo de archivo no soportado. Usá foto (JPG/PNG), audio o PDF.');
+      return;
+    }
+
+    setAttachMenuOpen(false);
+    setUploading(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `${conversation.business_id}/uploads/${conversation.id}/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(path, file, { contentType: file.type, upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from('chat-media').getPublicUrl(path);
+
+      await sendMedia({
+        media_url: publicUrlData.publicUrl,
+        media_type,
+        file_name: file.name,
+      });
+    } catch (err) {
+      console.error('Error subiendo archivo:', err);
+      toast.error(`Error al subir archivo: ${err.message || 'Error desconocido'}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openLibrary = async () => {
+    setAttachMenuOpen(false);
+    setLibraryOpen(true);
+    setLibraryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('media_library')
+        .select('*')
+        .eq('business_id', conversation.business_id)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      setLibraryItems(data || []);
+    } catch (err) {
+      console.error('Error cargando biblioteca de archivos:', err);
+      toast.error('No se pudo cargar la biblioteca de archivos');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const handlePickLibraryItem = async (item) => {
+    setLibraryOpen(false);
+    await sendMedia({
+      media_url: item.file_url,
+      media_type: item.media_type,
+      file_name: item.file_name,
+    });
+  };
+
   if (!conversation) {
     return (
       <div className="flex-1 min-h-0 flex flex-col justify-center items-center text-slate-500 p-8 space-y-3">
@@ -157,8 +275,52 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
       {/* Input Form */}
       <form
         onSubmit={handleSendMessage}
-        className="p-3 border-t border-slate-700/50 flex items-center space-x-2 flex-shrink-0"
+        className="p-3 border-t border-slate-700/50 flex items-center space-x-2 flex-shrink-0 relative"
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_FILE_TYPES}
+          onChange={handleFileSelected}
+          className="hidden"
+        />
+
+        <div className="relative flex-shrink-0">
+          <button
+            type="button"
+            onClick={() => setAttachMenuOpen((open) => !open)}
+            disabled={uploading}
+            title="Adjuntar foto, audio o PDF"
+            className="p-2.5 text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 disabled:opacity-40 rounded-md transition-colors btn-neu"
+          >
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+          </button>
+
+          {attachMenuOpen && (
+            <div className="absolute bottom-full mb-2 left-0 w-56 surface-glass rounded-md border border-slate-700/50 shadow-lg overflow-hidden z-20">
+              <button
+                type="button"
+                onClick={() => {
+                  setAttachMenuOpen(false);
+                  fileInputRef.current?.click();
+                }}
+                className="w-full flex items-center space-x-2 px-3.5 py-2.5 text-xs text-slate-200 hover:bg-slate-800 transition-colors"
+              >
+                <Image className="w-3.5 h-3.5 text-teal-400" />
+                <span>Subir foto, audio o PDF</span>
+              </button>
+              <button
+                type="button"
+                onClick={openLibrary}
+                className="w-full flex items-center space-x-2 px-3.5 py-2.5 text-xs text-slate-200 hover:bg-slate-800 transition-colors border-t border-slate-700/50"
+              >
+                <FileText className="w-3.5 h-3.5 text-teal-400" />
+                <span>Elegir de la biblioteca</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         <input
           type="text"
           value={inputText}
@@ -178,6 +340,58 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
           <Send className="w-4 h-4" />
         </button>
       </form>
+
+      {/* Modal: Elegir archivo de la Biblioteca */}
+      {libraryOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="surface-glass rounded-md w-full max-w-md p-5 space-y-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-slate-700/50 pb-3 flex-shrink-0">
+              <h2 className="font-display text-sm font-bold text-white flex items-center space-x-2">
+                <FileText className="w-4 h-4 text-teal-500" />
+                <span>Elegir de la Biblioteca</span>
+              </h2>
+              <button
+                onClick={() => setLibraryOpen(false)}
+                className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+              {libraryLoading ? (
+                <div className="text-center py-8 text-slate-500 text-xs">Cargando...</div>
+              ) : libraryItems.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-xs">
+                  No hay archivos en la biblioteca. Agregalos desde "Biblioteca de Archivos" en el menú.
+                </div>
+              ) : (
+                libraryItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handlePickLibraryItem(item)}
+                    className="w-full text-left flex items-center space-x-3 p-2.5 rounded-md border border-slate-700/40 hover:border-teal-600 hover:bg-slate-800/60 transition-colors"
+                  >
+                    <div className="w-9 h-9 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
+                      {item.media_type === 'image' ? (
+                        <Image className="w-4 h-4 text-teal-400" />
+                      ) : (
+                        <FileText className="w-4 h-4 text-teal-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-slate-100 truncate">{item.name}</p>
+                      {item.description && (
+                        <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -15,7 +15,8 @@ import {
   LayoutDashboard,
   ChevronLeft,
   ChevronRight,
-  Compass
+  Compass,
+  FolderOpen
 } from 'lucide-react';
 
 export const Layout = () => {
@@ -43,6 +44,7 @@ export const Layout = () => {
     { name: 'Clientes', path: '/crm/customers', icon: Users },
     { name: 'Configuración bot', path: '/crm/config', icon: Bot },
     { name: 'Preguntas frecuentes', path: '/crm/faqs', icon: HelpCircle },
+    { name: 'Biblioteca de archivos', path: '/crm/media', icon: FolderOpen },
   ];
 
   const adminNavItems = [
