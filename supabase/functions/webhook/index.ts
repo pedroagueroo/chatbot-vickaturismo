@@ -184,6 +184,326 @@ async function sendWhatsAppText(phoneId: string, token: string, to: string, text
   return sendWhatsAppMessage(phoneId, token, to, { type: 'text', text });
 }
 
+// Procesa el mensaje entrante y responde por WhatsApp. Se ejecuta en background
+// (vía EdgeRuntime.waitUntil) para que el webhook ya le haya contestado 200 a Meta
+// antes de llamar a Claude/STT, evitando que Meta interprete la demora como error
+// y reintente el mismo mensaje (lo que antes generaba respuestas duplicadas).
+async function processIncomingMessage(params: {
+  message: any;
+  phoneId: string;
+  userPhone: string;
+  userName: string;
+  business: any;
+  businessId: string;
+  whatsappToken: string;
+}) {
+  const { message, phoneId, userPhone, userName, business, businessId, whatsappToken } = params;
+
+  try {
+    // Extraemos el texto del mensaje (soporta texto y audio; el resto se ignora)
+    let userText = '';
+    if (message.type === 'text') {
+      userText = message.text.body;
+    } else if (message.type === 'audio') {
+      const transcript = await transcribeWhatsappAudio(message.audio.id, whatsappToken);
+      if (!transcript) {
+        await sendWhatsAppText(
+          phoneId,
+          whatsappToken,
+          userPhone,
+          'Por el momento no puedo procesar este audio 🙏. ¿Podrías escribirme tu consulta por texto? Si preferís, puedo comunicarte con uno de nuestros agentes.'
+        );
+        return;
+      }
+      userText = transcript;
+    } else {
+      // Por ahora ignoramos imágenes/videos/documentos para simplificar
+      return;
+    }
+
+    console.log(`Mensaje recibido de ${userPhone} en la línea ${phoneId}: "${userText}"`);
+
+    // ========================================================
+    // GESTIÓN DE CLIENTE Y CONVERSACIÓN
+    // ========================================================
+
+    // Buscar o crear cliente
+    let { data: customer } = await supabase
+      .from('customers')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('platform', 'whatsapp')
+      .eq('platform_id', userPhone)
+      .single();
+
+    if (!customer) {
+      const { data: newCustomer } = await supabase
+        .from('customers')
+        .insert({
+          business_id: businessId,
+          platform: 'whatsapp',
+          platform_id: userPhone,
+          name: userName,
+          phone: userPhone
+        })
+        .select()
+        .single();
+      customer = newCustomer;
+    }
+
+    // Buscar o crear conversación (activa o escalada)
+    let { data: conversation } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('customer_id', customer.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    // Si no hay conversación, o si estuviera explícitamente "closed" (para futuras features)
+    if (!conversation || conversation.status === 'closed') {
+      const { data: newConv } = await supabase
+        .from('conversations')
+        .insert({
+          business_id: businessId,
+          customer_id: customer.id,
+          status: 'active'
+        })
+        .select()
+        .single();
+      conversation = newConv;
+    }
+
+    // ========================================================
+    // GUARDAR MENSAJE DEL USUARIO
+    // ========================================================
+    await supabase.from('messages').insert({
+      business_id: businessId,
+      conversation_id: conversation.id,
+      role: 'user',
+      content: userText,
+      platform_msg_id: message.id
+    });
+
+    // Si está escalado a humano, no responde la IA
+    if (conversation.status === 'escalated') {
+      console.log('Conversación escalada, el bot no responde.');
+      return;
+    }
+
+    // ========================================================
+    // CARGAR CONFIGURACIÓN Y FAQS DEL TENANT (EMPRESA)
+    // ========================================================
+    const { data: config } = await supabase
+      .from('bot_config')
+      .select('*')
+      .eq('business_id', businessId)
+      .single();
+
+    const { data: faqsData } = await supabase
+      .from('faqs')
+      .select('question, answer')
+      .eq('business_id', businessId)
+      .eq('is_active', true);
+
+    let faqsText = 'Preguntas Frecuentes de la empresa:\n';
+    faqsData?.forEach(f => {
+      faqsText += `Q: ${f.question}\nA: ${f.answer}\n\n`;
+    });
+
+    const { data: mediaLibraryData } = await supabase
+      .from('media_library')
+      .select('id, name, description, media_type')
+      .eq('business_id', businessId)
+      .eq('is_active', true)
+      .is('deleted_at', null);
+
+    let mediaLibraryText = '';
+    if (mediaLibraryData && mediaLibraryData.length > 0) {
+      mediaLibraryText = 'Archivos disponibles para adjuntar (usá la tool send_media_file cuando corresponda):\n';
+      mediaLibraryData.forEach(m => {
+        mediaLibraryText += `- id: ${m.id} | tipo: ${m.media_type} | nombre: ${m.name}${m.description ? ` | descripción: ${m.description}` : ''}\n`;
+      });
+    }
+
+    // ========================================================
+    // LLAMADA A ANTHROPIC (CLAUDE)
+    // ========================================================
+    // Recuperar los últimos 5 mensajes para contexto
+    const { data: history } = await supabase
+      .from('messages')
+      .select('role, content')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: false })
+      .limit(6); // 5 historial + 1 actual
+
+    // Formatear para Claude (orden cronológico y alternancia estricta)
+    const rawHistory = (history || []).reverse();
+    const formattedHistory: any[] = [];
+
+    for (const msg of rawHistory) {
+      const role = msg.role === 'user' ? 'user' : 'assistant';
+      if (formattedHistory.length === 0) {
+        // Anthropic exige que el primer mensaje sea del usuario
+        if (role === 'user') {
+          formattedHistory.push({ role, content: msg.content });
+        }
+      } else {
+        const lastMsg = formattedHistory[formattedHistory.length - 1];
+        if (lastMsg.role === role) {
+          // Combinar mensajes consecutivos del mismo rol
+          lastMsg.content += `\n\n${msg.content}`;
+        } else {
+          formattedHistory.push({ role, content: msg.content });
+        }
+      }
+    }
+
+    let customerCrmContext = '';
+    if (customer) {
+      customerCrmContext = `
+Información y Ficha CRM del Cliente:
+- Nombre: ${customer.name || 'No especificado'}
+- Teléfono: ${customer.phone || 'No especificado'}
+- Email: ${customer.email || 'No registrado'}
+- DNI / Pasaporte: ${customer.dni || 'No registrado'}
+- Notas y Preferencias del Viajero: ${customer.notes || 'Sin notas registradas'}
+(Usa esta información para personalizar tu trato y recordar sus preferencias de viaje de forma natural, sin decirle directamente que estás leyendo una ficha).
+`;
+    }
+
+    const systemPrompt = `Eres un asistente de IA para la empresa "${business.name}".
+Tu personalidad es: ${config?.bot_personality || 'Amable y profesional'}.
+${customerCrmContext}
+Información de la empresa (FAQs):
+${faqsText}
+
+${mediaLibraryText}
+
+Información de contacto adicional: ${JSON.stringify(config?.contact_info || {})}
+
+Si el usuario pregunta algo que no sabes o pide hablar con un humano, indícaselo cortésmente, y el sistema escalará el chat.
+Reglas:
+- Nunca inventes promociones o precios que no estén en las FAQs.
+- Responde siempre de manera concisa (máximo 2-3 párrafos cortos).
+- Si el usuario pide (o claramente se beneficiaría de) una foto, un audio o un documento que figure en la lista de archivos disponibles, usá la tool send_media_file con el id exacto del archivo. Nunca inventes un id que no esté en la lista.`;
+
+    let aiResponse = "Lo siento, tuve un problema procesando tu mensaje. ¿Podrías repetirlo?";
+    let mediaToSend: { id: string } | null = null;
+
+    try {
+      const claudeResp = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 300,
+        system: systemPrompt,
+        messages: formattedHistory,
+        tools: [
+          {
+            name: 'send_media_file',
+            description: 'Adjunta y envía un archivo (foto, audio o documento) de la biblioteca de la empresa al cliente por WhatsApp.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                media_id: {
+                  type: 'string',
+                  description: 'El id exacto del archivo a enviar, tal como aparece en la lista de archivos disponibles.',
+                },
+              },
+              required: ['media_id'],
+            },
+          },
+        ],
+      });
+
+      const textBlock = claudeResp.content.find((b: any) => b.type === 'text');
+      aiResponse = textBlock?.text || '';
+
+      const toolUseBlock = claudeResp.content.find(
+        (b: any) => b.type === 'tool_use' && b.name === 'send_media_file'
+      );
+      if (toolUseBlock?.input?.media_id) {
+        mediaToSend = { id: toolUseBlock.input.media_id };
+      }
+    } catch (claudeError) {
+      console.error("Error llamando a Claude:", claudeError);
+    }
+
+    // ========================================================
+    // RESOLVER Y ENVIAR ARCHIVO ADJUNTO (SI CLAUDE LO PIDIÓ)
+    // ========================================================
+    let mediaItem: any = null;
+    if (mediaToSend) {
+      const { data: foundMedia } = await supabase
+        .from('media_library')
+        .select('*')
+        .eq('id', mediaToSend.id)
+        .eq('business_id', businessId)
+        .eq('is_active', true)
+        .is('deleted_at', null)
+        .single();
+      mediaItem = foundMedia || null;
+      if (!mediaItem) {
+        console.error('El bot pidió enviar un media_id que no existe o no está activo:', mediaToSend.id);
+        if (!aiResponse) {
+          aiResponse = 'Quería enviarte un archivo, pero tuve un problema encontrándolo. ¿Podrías repetirme tu consulta?';
+        }
+      }
+    }
+
+    // ========================================================
+    // RESPONDER A WHATSAPP (META API)
+    // ========================================================
+    if (whatsappToken && mediaItem) {
+      const supportsCaption = mediaItem.media_type !== 'audio';
+      const metaResJson = await sendWhatsAppMessage(phoneId, whatsappToken, userPhone, {
+        type: mediaItem.media_type,
+        mediaUrl: mediaItem.file_url,
+        fileName: mediaItem.file_name,
+        ...(supportsCaption && aiResponse ? { caption: aiResponse } : {}),
+      });
+      console.log('Respuesta de Meta API (media):', metaResJson);
+
+      await supabase.from('messages').insert({
+        business_id: businessId,
+        conversation_id: conversation.id,
+        role: 'assistant',
+        content: supportsCaption ? aiResponse : '',
+        media_url: mediaItem.file_url,
+        media_type: mediaItem.media_type,
+        file_name: mediaItem.file_name,
+      });
+
+      // El audio no soporta caption en WhatsApp: si había texto, se manda aparte.
+      if (!supportsCaption && aiResponse) {
+        const textResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
+        console.log('Respuesta de Meta API (texto tras audio):', textResJson);
+        await supabase.from('messages').insert({
+          business_id: businessId,
+          conversation_id: conversation.id,
+          role: 'assistant',
+          content: aiResponse,
+        });
+      }
+    } else if (whatsappToken && aiResponse) {
+      const metaResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
+      console.log("Respuesta de Meta API:", metaResJson);
+
+      // ========================================================
+      // GUARDAR RESPUESTA DEL BOT
+      // ========================================================
+      await supabase.from('messages').insert({
+        business_id: businessId,
+        conversation_id: conversation.id,
+        role: 'assistant',
+        content: aiResponse
+      });
+    }
+  } catch (err) {
+    console.error('Error procesando mensaje en background:', err);
+  }
+}
+
 serve(async (req) => {
   // Manejo de CORS para llamadas desde el navegador (si aplica)
   if (req.method === 'OPTIONS') {
@@ -248,7 +568,7 @@ serve(async (req) => {
 
       const message = value.messages[0];
       const contact = value.contacts?.[0];
-      
+
       const phoneId = value.metadata.phone_number_id; // ID del número que recibió el mensaje (NUESTRO BOT)
       const userPhone = message.from; // Número del cliente que escribe
       const userName = contact?.profile?.name || 'Usuario';
@@ -271,302 +591,44 @@ serve(async (req) => {
       const businessId = business.id;
       const whatsappToken = business.whatsapp_access_token;
 
-      // Extraemos el texto del mensaje (soporta texto y audio; el resto se ignora)
-      let userText = '';
-      if (message.type === 'text') {
-        userText = message.text.body;
-      } else if (message.type === 'audio') {
-        const transcript = await transcribeWhatsappAudio(message.audio.id, whatsappToken);
-        if (!transcript) {
-          await sendWhatsAppText(
-            phoneId,
-            whatsappToken,
-            userPhone,
-            'Por el momento no puedo procesar este audio 🙏. ¿Podrías escribirme tu consulta por texto? Si preferís, puedo comunicarte con uno de nuestros agentes.'
-          );
-          return new Response('EVENT_RECEIVED', { status: 200 });
-        }
-        userText = transcript;
-      } else {
-        // Por ahora ignoramos imágenes/videos/documentos para simplificar
-        return new Response('EVENT_RECEIVED', { status: 200 });
-      }
-
-      console.log(`Mensaje recibido de ${userPhone} en la línea ${phoneId}: "${userText}"`);
-
       // ========================================================
-      // GESTIÓN DE CLIENTE Y CONVERSACIÓN
+      // DEDUPLICACIÓN: si Meta reintenta el mismo webhook (porque no recibió
+      // el 200 a tiempo, o por cualquier otro motivo), este message.id ya va
+      // a estar guardado y no volvemos a procesarlo ni a llamar a Claude.
       // ========================================================
-      
-      // Buscar o crear cliente
-      let { data: customer } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('business_id', businessId)
-        .eq('platform', 'whatsapp')
-        .eq('platform_id', userPhone)
-        .single();
-
-      if (!customer) {
-        const { data: newCustomer } = await supabase
-          .from('customers')
-          .insert({
-            business_id: businessId,
-            platform: 'whatsapp',
-            platform_id: userPhone,
-            name: userName,
-            phone: userPhone
-          })
-          .select()
-          .single();
-        customer = newCustomer;
-      }
-
-      // Buscar o crear conversación (activa o escalada)
-      let { data: conversation } = await supabase
-        .from('conversations')
-        .select('*')
-        .eq('business_id', businessId)
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      // Si no hay conversación, o si estuviera explícitamente "closed" (para futuras features)
-      if (!conversation || conversation.status === 'closed') {
-        const { data: newConv } = await supabase
-          .from('conversations')
-          .insert({
-            business_id: businessId,
-            customer_id: customer.id,
-            status: 'active'
-          })
-          .select()
-          .single();
-        conversation = newConv;
-      }
-
-      // ========================================================
-      // GUARDAR MENSAJE DEL USUARIO
-      // ========================================================
-      await supabase.from('messages').insert({
-        business_id: businessId,
-        conversation_id: conversation.id,
-        role: 'user',
-        content: userText,
-        platform_msg_id: message.id
-      });
-
-      // Si está escalado a humano, no responde la IA
-      if (conversation.status === 'escalated') {
-        console.log('Conversación escalada, el bot no responde.');
-        return new Response('EVENT_RECEIVED', { status: 200 });
-      }
-
-      // ========================================================
-      // CARGAR CONFIGURACIÓN Y FAQS DEL TENANT (EMPRESA)
-      // ========================================================
-      const { data: config } = await supabase
-        .from('bot_config')
-        .select('*')
-        .eq('business_id', businessId)
-        .single();
-
-      const { data: faqsData } = await supabase
-        .from('faqs')
-        .select('question, answer')
-        .eq('business_id', businessId)
-        .eq('is_active', true);
-
-      let faqsText = 'Preguntas Frecuentes de la empresa:\n';
-      faqsData?.forEach(f => {
-        faqsText += `Q: ${f.question}\nA: ${f.answer}\n\n`;
-      });
-
-      const { data: mediaLibraryData } = await supabase
-        .from('media_library')
-        .select('id, name, description, media_type')
-        .eq('business_id', businessId)
-        .eq('is_active', true);
-
-      let mediaLibraryText = '';
-      if (mediaLibraryData && mediaLibraryData.length > 0) {
-        mediaLibraryText = 'Archivos disponibles para adjuntar (usá la tool send_media_file cuando corresponda):\n';
-        mediaLibraryData.forEach(m => {
-          mediaLibraryText += `- id: ${m.id} | tipo: ${m.media_type} | nombre: ${m.name}${m.description ? ` | descripción: ${m.description}` : ''}\n`;
-        });
-      }
-
-      // ========================================================
-      // LLAMADA A ANTHROPIC (CLAUDE)
-      // ========================================================
-      // Recuperar los últimos 5 mensajes para contexto
-      const { data: history } = await supabase
+      const { data: existingMsg } = await supabase
         .from('messages')
-        .select('role, content')
-        .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: false })
-        .limit(6); // 5 historial + 1 actual
+        .select('id')
+        .eq('business_id', businessId)
+        .eq('platform_msg_id', message.id)
+        .maybeSingle();
 
-      // Formatear para Claude (orden cronológico y alternancia estricta)
-      const rawHistory = (history || []).reverse();
-      const formattedHistory: any[] = [];
-      
-      for (const msg of rawHistory) {
-        const role = msg.role === 'user' ? 'user' : 'assistant';
-        if (formattedHistory.length === 0) {
-          // Anthropic exige que el primer mensaje sea del usuario
-          if (role === 'user') {
-            formattedHistory.push({ role, content: msg.content });
-          }
-        } else {
-          const lastMsg = formattedHistory[formattedHistory.length - 1];
-          if (lastMsg.role === role) {
-            // Combinar mensajes consecutivos del mismo rol
-            lastMsg.content += `\n\n${msg.content}`;
-          } else {
-            formattedHistory.push({ role, content: msg.content });
-          }
-        }
-      }
-
-      let customerCrmContext = '';
-      if (customer) {
-        customerCrmContext = `
-Información y Ficha CRM del Cliente:
-- Nombre: ${customer.name || 'No especificado'}
-- Teléfono: ${customer.phone || 'No especificado'}
-- Email: ${customer.email || 'No registrado'}
-- DNI / Pasaporte: ${customer.dni || 'No registrado'}
-- Notas y Preferencias del Viajero: ${customer.notes || 'Sin notas registradas'}
-(Usa esta información para personalizar tu trato y recordar sus preferencias de viaje de forma natural, sin decirle directamente que estás leyendo una ficha).
-`;
-      }
-
-      const systemPrompt = `Eres un asistente de IA para la empresa "${business.name}".
-Tu personalidad es: ${config?.bot_personality || 'Amable y profesional'}.
-${customerCrmContext}
-Información de la empresa (FAQs):
-${faqsText}
-
-${mediaLibraryText}
-
-Información de contacto adicional: ${JSON.stringify(config?.contact_info || {})}
-
-Si el usuario pregunta algo que no sabes o pide hablar con un humano, indícaselo cortésmente, y el sistema escalará el chat.
-Reglas:
-- Nunca inventes promociones o precios que no estén en las FAQs.
-- Responde siempre de manera concisa (máximo 2-3 párrafos cortos).
-- Si el usuario pide (o claramente se beneficiaría de) una foto, un audio o un documento que figure en la lista de archivos disponibles, usá la tool send_media_file con el id exacto del archivo. Nunca inventes un id que no esté en la lista.`;
-
-      let aiResponse = "Lo siento, tuve un problema procesando tu mensaje. ¿Podrías repetirlo?";
-      let mediaToSend: { id: string } | null = null;
-
-      try {
-        const claudeResp = await anthropic.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          system: systemPrompt,
-          messages: formattedHistory,
-          tools: [
-            {
-              name: 'send_media_file',
-              description: 'Adjunta y envía un archivo (foto, audio o documento) de la biblioteca de la empresa al cliente por WhatsApp.',
-              input_schema: {
-                type: 'object',
-                properties: {
-                  media_id: {
-                    type: 'string',
-                    description: 'El id exacto del archivo a enviar, tal como aparece en la lista de archivos disponibles.',
-                  },
-                },
-                required: ['media_id'],
-              },
-            },
-          ],
-        });
-
-        const textBlock = claudeResp.content.find((b: any) => b.type === 'text');
-        aiResponse = textBlock?.text || '';
-
-        const toolUseBlock = claudeResp.content.find(
-          (b: any) => b.type === 'tool_use' && b.name === 'send_media_file'
-        );
-        if (toolUseBlock?.input?.media_id) {
-          mediaToSend = { id: toolUseBlock.input.media_id };
-        }
-      } catch (claudeError) {
-        console.error("Error llamando a Claude:", claudeError);
+      if (existingMsg) {
+        console.log('Mensaje duplicado (reintento de Meta), ignorando:', message.id);
+        return new Response('EVENT_RECEIVED', { status: 200 });
       }
 
       // ========================================================
-      // RESOLVER Y ENVIAR ARCHIVO ADJUNTO (SI CLAUDE LO PIDIÓ)
+      // Respondemos 200 a Meta YA, y procesamos (Claude, STT, envío)
+      // en background. Así Meta nunca llega a hacer timeout y reintentar.
       // ========================================================
-      let mediaItem: any = null;
-      if (mediaToSend) {
-        const { data: foundMedia } = await supabase
-          .from('media_library')
-          .select('*')
-          .eq('id', mediaToSend.id)
-          .eq('business_id', businessId)
-          .eq('is_active', true)
-          .single();
-        mediaItem = foundMedia || null;
-        if (!mediaItem) {
-          console.error('El bot pidió enviar un media_id que no existe o no está activo:', mediaToSend.id);
-          if (!aiResponse) {
-            aiResponse = 'Quería enviarte un archivo, pero tuve un problema encontrándolo. ¿Podrías repetirme tu consulta?';
-          }
-        }
-      }
+      const processingPromise = processIncomingMessage({
+        message,
+        phoneId,
+        userPhone,
+        userName,
+        business,
+        businessId,
+        whatsappToken,
+      });
 
-      // ========================================================
-      // RESPONDER A WHATSAPP (META API)
-      // ========================================================
-      if (whatsappToken && mediaItem) {
-        const supportsCaption = mediaItem.media_type !== 'audio';
-        const metaResJson = await sendWhatsAppMessage(phoneId, whatsappToken, userPhone, {
-          type: mediaItem.media_type,
-          mediaUrl: mediaItem.file_url,
-          fileName: mediaItem.file_name,
-          ...(supportsCaption && aiResponse ? { caption: aiResponse } : {}),
-        });
-        console.log('Respuesta de Meta API (media):', metaResJson);
-
-        await supabase.from('messages').insert({
-          business_id: businessId,
-          conversation_id: conversation.id,
-          role: 'assistant',
-          content: supportsCaption ? aiResponse : '',
-          media_url: mediaItem.file_url,
-          media_type: mediaItem.media_type,
-          file_name: mediaItem.file_name,
-        });
-
-        // El audio no soporta caption en WhatsApp: si había texto, se manda aparte.
-        if (!supportsCaption && aiResponse) {
-          const textResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
-          console.log('Respuesta de Meta API (texto tras audio):', textResJson);
-          await supabase.from('messages').insert({
-            business_id: businessId,
-            conversation_id: conversation.id,
-            role: 'assistant',
-            content: aiResponse,
-          });
-        }
-      } else if (whatsappToken && aiResponse) {
-        const metaResJson = await sendWhatsAppText(phoneId, whatsappToken, userPhone, aiResponse);
-        console.log("Respuesta de Meta API:", metaResJson);
-
-        // ========================================================
-        // GUARDAR RESPUESTA DEL BOT
-        // ========================================================
-        await supabase.from('messages').insert({
-          business_id: businessId,
-          conversation_id: conversation.id,
-          role: 'assistant',
-          content: aiResponse
-        });
+      // @ts-ignore EdgeRuntime es global en Deno Deploy / Supabase Edge Functions
+      if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(processingPromise);
+      } else {
+        // Fallback (p. ej. entorno local) donde EdgeRuntime no existe
+        processingPromise.catch((err) => console.error('Error procesando mensaje en background:', err));
       }
 
       return new Response('EVENT_RECEIVED', { status: 200 });

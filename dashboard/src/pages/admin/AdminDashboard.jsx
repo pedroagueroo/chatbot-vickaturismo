@@ -10,6 +10,15 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+// Límite de Storage del plan gratuito de Supabase (todo el proyecto comparte este cupo).
+const FREE_TIER_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GB
+
+function formatBytes(bytes) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export const AdminDashboard = () => {
   const [stats, setStats] = useState({
     totalBusinesses: 0,
@@ -23,10 +32,43 @@ export const AdminDashboard = () => {
   const [recentBusinesses, setRecentBusinesses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [storageBytes, setStorageBytes] = useState(0);
+  const [storageLoading, setStorageLoading] = useState(true);
 
   useEffect(() => {
     fetchGlobalMetrics();
+    fetchStorageUsage();
   }, []);
+
+  // Recorre recursivamente todas las carpetas del bucket chat-media sumando el tamaño de cada archivo.
+  // La lectura del bucket es pública (para que Meta pueda descargar los adjuntos), así que desde acá
+  // vemos el uso total de TODAS las empresas, que es justo lo que cuenta contra el cupo del plan.
+  const fetchStorageUsage = async () => {
+    setStorageLoading(true);
+    try {
+      let total = 0;
+      const walk = async (path) => {
+        const { data, error } = await supabase.storage
+          .from('chat-media')
+          .list(path || undefined, { limit: 1000 });
+        if (error || !data) return;
+        for (const entry of data) {
+          if (!entry.id || !entry.metadata) {
+            // Es una "carpeta" (prefijo), no un archivo real: bajamos un nivel más.
+            await walk(path ? `${path}/${entry.name}` : entry.name);
+          } else {
+            total += entry.metadata.size || 0;
+          }
+        }
+      };
+      await walk('');
+      setStorageBytes(total);
+    } catch (err) {
+      console.error('Error calculando uso de storage:', err);
+    } finally {
+      setStorageLoading(false);
+    }
+  };
 
   const fetchGlobalMetrics = async () => {
     setLoading(true);
@@ -269,6 +311,36 @@ export const AdminDashboard = () => {
                     <span className="text-slate-400">Seguridad RLS</span>
                     <span className="font-semibold text-emerald-400">Habilitada & Aislada</span>
                   </div>
+                </div>
+
+                {/* Uso de Storage vs. cupo del plan gratuito de Supabase */}
+                <div className="pt-3 border-t border-slate-700/50 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Almacenamiento usado</span>
+                    <span className="font-semibold text-slate-300">
+                      {storageLoading ? 'Calculando...' : `${formatBytes(storageBytes)} / 1 GB`}
+                    </span>
+                  </div>
+                  {(() => {
+                    const percent = Math.min((storageBytes / FREE_TIER_STORAGE_BYTES) * 100, 100);
+                    const barColor =
+                      percent > 90 ? 'bg-red-500' : percent > 70 ? 'bg-amber-500' : 'bg-teal-500';
+                    return (
+                      <>
+                        <div className="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                            style={{ width: storageLoading ? '0%' : `${percent}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          {storageLoading
+                            ? 'Sumando archivos del bucket chat-media...'
+                            : `${percent.toFixed(1)}% del plan gratuito de Supabase (Storage)`}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

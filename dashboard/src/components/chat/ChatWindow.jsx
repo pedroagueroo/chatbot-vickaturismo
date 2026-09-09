@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageBubble } from './MessageBubble';
-import { Send, UserCheck, Bot, Phone, Paperclip, Image, FileText, Loader2, X } from 'lucide-react';
+import { Send, UserCheck, Bot, Phone, Paperclip, Image, FileText, Loader2, X, Folder, ChevronRight, Home } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
@@ -24,8 +24,11 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
   const [uploading, setUploading] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryFolders, setLibraryFolders] = useState([]);
   const [libraryItems, setLibraryItems] = useState([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryFolderId, setLibraryFolderId] = useState(null);
+  const [libraryBreadcrumb, setLibraryBreadcrumb] = useState([]); // [{ id, name }]
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -172,26 +175,69 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
     }
   };
 
-  const openLibrary = async () => {
-    setAttachMenuOpen(false);
-    setLibraryOpen(true);
+  const fetchLibraryFolder = async (folderId) => {
     setLibraryLoading(true);
     try {
-      const { data, error } = await supabase
+      let folderQuery = supabase
+        .from('media_folders')
+        .select('*')
+        .eq('business_id', conversation.business_id)
+        .order('name');
+      folderQuery = folderId ? folderQuery.eq('parent_folder_id', folderId) : folderQuery.is('parent_folder_id', null);
+
+      let itemsQuery = supabase
         .from('media_library')
         .select('*')
         .eq('business_id', conversation.business_id)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .order('name');
+      itemsQuery = folderId ? itemsQuery.eq('folder_id', folderId) : itemsQuery.is('folder_id', null);
 
-      if (error) throw error;
-      setLibraryItems(data || []);
+      const [{ data: folderData, error: folderError }, { data: itemData, error: itemError }] = await Promise.all([
+        folderQuery,
+        itemsQuery,
+      ]);
+
+      if (folderError) throw folderError;
+      if (itemError) throw itemError;
+
+      setLibraryFolders(folderData || []);
+      setLibraryItems(itemData || []);
     } catch (err) {
       console.error('Error cargando biblioteca de archivos:', err);
       toast.error('No se pudo cargar la biblioteca de archivos');
     } finally {
       setLibraryLoading(false);
     }
+  };
+
+  const openLibrary = async () => {
+    setAttachMenuOpen(false);
+    setLibraryOpen(true);
+    setLibraryFolderId(null);
+    setLibraryBreadcrumb([]);
+    await fetchLibraryFolder(null);
+  };
+
+  const openLibrarySubfolder = async (folder) => {
+    setLibraryBreadcrumb((prev) => [...prev, { id: folder.id, name: folder.name }]);
+    setLibraryFolderId(folder.id);
+    await fetchLibraryFolder(folder.id);
+  };
+
+  const goToLibraryBreadcrumb = async (index) => {
+    if (index === -1) {
+      setLibraryBreadcrumb([]);
+      setLibraryFolderId(null);
+      await fetchLibraryFolder(null);
+      return;
+    }
+    const newCrumb = libraryBreadcrumb.slice(0, index + 1);
+    const targetId = newCrumb[newCrumb.length - 1].id;
+    setLibraryBreadcrumb(newCrumb);
+    setLibraryFolderId(targetId);
+    await fetchLibraryFolder(targetId);
   };
 
   const handlePickLibraryItem = async (item) => {
@@ -358,35 +404,77 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
               </button>
             </div>
 
+            {/* Breadcrumb */}
+            <div className="flex items-center flex-wrap gap-1 text-[11px] flex-shrink-0 -mt-1">
+              <button
+                onClick={() => goToLibraryBreadcrumb(-1)}
+                className={`flex items-center space-x-1 px-1.5 py-0.5 rounded transition-colors ${
+                  libraryFolderId === null ? 'text-teal-400 font-semibold' : 'text-slate-400 hover:text-teal-300 hover:bg-slate-800'
+                }`}
+              >
+                <Home className="w-3 h-3" />
+                <span>Biblioteca</span>
+              </button>
+              {libraryBreadcrumb.map((crumb, index) => (
+                <React.Fragment key={crumb.id}>
+                  <ChevronRight className="w-3 h-3 text-slate-600" />
+                  <button
+                    onClick={() => goToLibraryBreadcrumb(index)}
+                    className={`px-1.5 py-0.5 rounded transition-colors ${
+                      index === libraryBreadcrumb.length - 1
+                        ? 'text-teal-400 font-semibold'
+                        : 'text-slate-400 hover:text-teal-300 hover:bg-slate-800'
+                    }`}
+                  >
+                    {crumb.name}
+                  </button>
+                </React.Fragment>
+              ))}
+            </div>
+
             <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
               {libraryLoading ? (
                 <div className="text-center py-8 text-slate-500 text-xs">Cargando...</div>
-              ) : libraryItems.length === 0 ? (
+              ) : libraryFolders.length === 0 && libraryItems.length === 0 ? (
                 <div className="text-center py-8 text-slate-500 text-xs">
-                  No hay archivos en la biblioteca. Agregalos desde "Biblioteca de Archivos" en el menú.
+                  Esta carpeta está vacía. Agregá contenido desde "Biblioteca de Archivos" en el menú.
                 </div>
               ) : (
-                libraryItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handlePickLibraryItem(item)}
-                    className="w-full text-left flex items-center space-x-3 p-2.5 rounded-md border border-slate-700/40 hover:border-teal-600 hover:bg-slate-800/60 transition-colors"
-                  >
-                    <div className="w-9 h-9 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
-                      {item.media_type === 'image' ? (
-                        <Image className="w-4 h-4 text-teal-400" />
-                      ) : (
-                        <FileText className="w-4 h-4 text-teal-400" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-slate-100 truncate">{item.name}</p>
-                      {item.description && (
-                        <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
-                      )}
-                    </div>
-                  </button>
-                ))
+                <>
+                  {libraryFolders.map((folder) => (
+                    <button
+                      key={folder.id}
+                      onClick={() => openLibrarySubfolder(folder)}
+                      className="w-full text-left flex items-center space-x-3 p-2.5 rounded-md border border-slate-700/40 hover:border-teal-600 hover:bg-slate-800/60 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded bg-teal-500/10 flex items-center justify-center flex-shrink-0">
+                        <Folder className="w-4 h-4 text-teal-400" />
+                      </div>
+                      <p className="text-xs font-semibold text-slate-100 truncate">{folder.name}</p>
+                    </button>
+                  ))}
+                  {libraryItems.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => handlePickLibraryItem(item)}
+                      className="w-full text-left flex items-center space-x-3 p-2.5 rounded-md border border-slate-700/40 hover:border-teal-600 hover:bg-slate-800/60 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded bg-slate-800 flex items-center justify-center flex-shrink-0">
+                        {item.media_type === 'image' ? (
+                          <Image className="w-4 h-4 text-teal-400" />
+                        ) : (
+                          <FileText className="w-4 h-4 text-teal-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-100 truncate">{item.name}</p>
+                        {item.description && (
+                          <p className="text-[11px] text-slate-500 truncate">{item.description}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           </div>
