@@ -48,6 +48,16 @@
   *::-webkit-scrollbar-corner {
     background: transparent;
   }
+
+  /* En mobile, Safari hace zoom automático al enfocar un input con font-size < 16px.
+     Forzamos 16px solo por debajo de md para no romper la densidad visual en desktop. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {

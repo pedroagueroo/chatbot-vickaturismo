@@ -570,7 +570,7 @@ export const MediaLibrary = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center flex-wrap gap-2">
           {isSuperAdmin && businesses.length > 0 && (
             <div className="flex items-center space-x-2 surface-glass rounded-md px-3 py-1.5">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
@@ -582,7 +582,7 @@ export const MediaLibrary = () => {
                   setCurrentFolderId(null);
                   setBreadcrumb([]);
                 }}
-                className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-teal-600"
+                className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-teal-600 max-w-[150px] sm:max-w-[220px]"
               >
                 {businesses.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -872,7 +872,7 @@ export const MediaLibrary = () => {
       {/* Modal Nueva/Editar Carpeta */}
       {folderModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="surface-glass rounded-md w-full max-w-sm p-6 space-y-5">
+          <div className="surface-glass rounded-md w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
               <h2 className="font-display text-base font-bold text-white flex items-center space-x-2">
                 <FolderPlus className="w-5 h-5 text-teal-500" />
@@ -925,7 +925,7 @@ export const MediaLibrary = () => {
       {/* Modal Crear / Editar Archivo */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
               <h2 className="font-display text-base font-bold text-white flex items-center space-x-2">
                 <FolderOpen className="w-5 h-5 text-teal-500" />
@@ -1124,7 +1124,7 @@ export const MediaLibrary = () => {
       {/* Modal de confirmación (eliminar carpeta / archivo) */}
       {confirmState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="surface-glass rounded-md w-full max-w-sm p-6 space-y-5">
+          <div className="surface-glass rounded-md w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start space-x-3">
               <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="w-5 h-5 text-red-400" />

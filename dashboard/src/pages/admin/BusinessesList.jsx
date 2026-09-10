@@ -287,7 +287,100 @@ export const BusinessesList = () => {
         </div>
       ) : (
         <div className="surface-glass rounded-md overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Tarjetas: única vista cómoda en mobile, evita el scroll horizontal de una tabla de 5 columnas */}
+          <div className="md:hidden divide-y divide-slate-700/40">
+            {filteredBusinesses.map((biz) => (
+              <div key={biz.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-white truncate">{biz.name}</p>
+                    <span className="text-[10px] text-slate-500 font-mono block truncate">ID: {biz.id}</span>
+                  </div>
+                  <span
+                    className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded text-xs font-bold flex-shrink-0 ${
+                      biz.status === 'active'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                    }`}
+                  >
+                    {biz.status === 'active' ? (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>Activo</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        <span>Suspendido</span>
+                      </>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs">
+                  {biz.whatsapp_phone_number_id ? (
+                    <div className="space-y-0.5 min-w-0">
+                      <span className="inline-flex items-center space-x-1 text-xs text-teal-400 font-mono">
+                        <Key className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">ID: {biz.whatsapp_phone_number_id}</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500 block">
+                        Token: {biz.whatsapp_access_token ? 'Configurado' : 'Faltante'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-slate-500 italic">WhatsApp sin configurar</span>
+                  )}
+                  <div className="flex items-center space-x-1.5 text-slate-400 flex-shrink-0">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{new Date(biz.created_at).toLocaleDateString()}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-1 pt-1 border-t border-slate-800/60">
+                  <button
+                    onClick={() => {
+                      setSelectedBusinessId(biz.id);
+                      toast.success(`Accediendo al panel de "${biz.name}"`);
+                      navigate('/crm');
+                    }}
+                    className="px-2.5 py-1.5 bg-teal-600/20 hover:bg-teal-600 border border-teal-500/30 hover:border-teal-500 text-teal-300 hover:text-white rounded text-xs font-medium transition-colors flex items-center space-x-1 cursor-pointer mr-auto"
+                  >
+                    <span>Abrir empresa</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => handleToggleStatus(biz)}
+                    title={biz.status === 'active' ? 'Suspender Empresa' : 'Activar Empresa'}
+                    className={`p-2 rounded transition-colors cursor-pointer ${
+                      biz.status === 'active'
+                        ? 'text-amber-400 hover:bg-amber-500/10'
+                        : 'text-emerald-400 hover:bg-emerald-500/10'
+                    }`}
+                  >
+                    <Power className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => openModal(biz)}
+                    title="Editar Datos"
+                    className="p-2 text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 rounded transition-colors cursor-pointer"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteBusiness(biz)}
+                    title="Eliminar Empresa"
+                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabla: vista compacta reservada a pantallas md+ */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs md:text-sm">
               <thead className="bg-slate-950/40 border-b border-slate-700/50 text-slate-400 uppercase tracking-wider text-[11px] font-semibold">
                 <tr>
@@ -412,7 +505,7 @@ export const BusinessesList = () => {
       {/* Modal para Crear / Editar Empresa */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
               <h2 className="font-display text-base font-bold text-white flex items-center space-x-2">
                 <Building2 className="w-5 h-5 text-teal-500" />

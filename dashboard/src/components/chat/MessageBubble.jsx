@@ -52,7 +52,7 @@ export const MessageBubble = ({ message }) => {
   return (
     <div className={`flex w-full ${isUser ? 'justify-start' : 'justify-end'} mb-3`}>
       <div
-        className={`max-w-[75%] md:max-w-[65%] rounded-lg p-3.5 text-xs md:text-sm leading-relaxed space-y-1 border backdrop-blur-md shadow-lg ${
+        className={`max-w-[85%] md:max-w-[65%] rounded-lg p-3.5 text-xs md:text-sm leading-relaxed space-y-1 border backdrop-blur-md shadow-lg ${
           isUser
             ? 'bg-slate-800/60 border-slate-600/40 text-slate-100 rounded-tl-sm shadow-black/20'
             : isHumanAgent

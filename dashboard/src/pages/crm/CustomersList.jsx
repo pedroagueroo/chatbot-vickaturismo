@@ -198,7 +198,7 @@ export const CustomersList = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="flex items-center flex-wrap gap-2.5">
           <button
             onClick={fetchCustomers}
             title="Refrescar Lista"
@@ -285,7 +285,84 @@ export const CustomersList = () => {
         </div>
       ) : (
         <div className="surface-glass rounded-md overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Tarjetas: única vista cómoda en mobile, evita el scroll horizontal de una tabla de 6 columnas */}
+          <div className="md:hidden divide-y divide-slate-700/40">
+            {sortedCustomers.map((customer) => (
+              <div
+                key={customer.id}
+                onClick={() => handleOpenProfile(customer)}
+                className="p-4 space-y-3 active:bg-slate-800/40 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-teal-400 flex-shrink-0">
+                      {customer.name?.charAt(0)?.toUpperCase() || customer.phone?.slice(-2) || 'C'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">{customer.name || 'Cliente sin nombre'}</p>
+                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">
+                        WhatsApp Lead
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-slate-500 whitespace-nowrap flex-shrink-0">
+                    {new Date(customer.created_at || Date.now()).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="flex items-center space-x-1.5 text-slate-300">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span className="truncate">{customer.phone || customer.platform_id}</span>
+                  </div>
+                  {customer.email ? (
+                    <div className="flex items-center space-x-1.5 text-teal-300">
+                      <Mail className="w-3.5 h-3.5 text-teal-400 flex-shrink-0" />
+                      <span className="truncate">{customer.email}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-1.5 text-slate-500 italic text-[11px]">
+                      <Mail className="w-3.5 h-3.5 flex-shrink-0 opacity-50" />
+                      <span>Sin email</span>
+                    </div>
+                  )}
+                </div>
+
+                {customer.dni && (
+                  <div className="flex items-center space-x-1.5 font-mono text-xs text-slate-200">
+                    <CreditCard className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+                    <span>{customer.dni}</span>
+                  </div>
+                )}
+
+                {customer.notes && (
+                  <div className="flex items-center space-x-1.5 text-slate-300 bg-slate-950/60 border border-slate-800 p-1.5 rounded">
+                    <FileText className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                    <p className="truncate text-[11px] leading-tight">{customer.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end space-x-1 pt-1" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => handleOpenProfile(customer)}
+                    className="px-2.5 py-1.5 bg-teal-600/20 hover:bg-teal-600 text-teal-300 hover:text-white border border-teal-500/30 rounded text-xs font-medium transition-colors flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Ficha</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/crm/inbox')}
+                    className="p-2 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabla: vista compacta reservada a pantallas md+ */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-700/50 bg-slate-950/40 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -315,7 +392,7 @@ export const CustomersList = () => {
                           <div className="font-semibold text-white group-hover:text-teal-300 transition-colors flex items-center space-x-1.5">
                             <span>{customer.name || 'Cliente sin nombre'}</span>
                           </div>
-                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded font-mono">
+                          <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-mono">
                             WhatsApp Lead
                           </span>
                         </div>

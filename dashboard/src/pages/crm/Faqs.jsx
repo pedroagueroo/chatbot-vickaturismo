@@ -231,7 +231,7 @@ export const Faqs = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center flex-wrap gap-2">
           {/* Selector de empresa si es Super Admin */}
           {isSuperAdmin && businesses.length > 0 && (
             <div className="flex items-center space-x-2 surface-glass rounded-md px-3 py-1.5">
@@ -240,7 +240,7 @@ export const Faqs = () => {
               <select
                 value={targetBusinessId || ''}
                 onChange={(e) => setTargetBusinessId(e.target.value)}
-                className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-teal-600"
+                className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-teal-600 max-w-[150px] sm:max-w-[220px]"
               >
                 {businesses.map((b) => (
                   <option key={b.id} value={b.id}>
@@ -391,7 +391,7 @@ export const Faqs = () => {
       {/* Modal para Crear / Editar FAQ */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+          <div className="surface-glass rounded-md w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
               <h2 className="font-display text-base font-bold text-white flex items-center space-x-2">
                 <HelpCircle className="w-5 h-5 text-teal-500" />

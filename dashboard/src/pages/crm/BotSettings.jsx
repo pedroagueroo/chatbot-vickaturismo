@@ -196,7 +196,7 @@ export const BotSettings = () => {
             <select
               value={targetBusinessId || ''}
               onChange={(e) => setTargetBusinessId(e.target.value)}
-              className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2.5 py-1 focus:outline-none focus:border-teal-600"
+              className="bg-slate-950/80 text-xs text-white border border-slate-700 rounded px-2.5 py-1 focus:outline-none focus:border-teal-600 max-w-[150px] sm:max-w-[220px]"
             >
               {businesses.map((b) => (
                 <option key={b.id} value={b.id}>

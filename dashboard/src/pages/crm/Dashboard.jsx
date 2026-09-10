@@ -159,7 +159,7 @@ export const CrmDashboard = () => {
           </p>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center flex-wrap gap-2">
           <button
             onClick={fetchDashboardData}
             title="Refrescar Estadísticas"
@@ -249,15 +249,15 @@ export const CrmDashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Gráfico Recharts de Evolución de Mensajes (2 Columnas) */}
         <div className="lg:col-span-2 surface-glass rounded-md p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/50 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/50 pb-3">
             <div className="flex items-center space-x-2.5">
-              <TrendingUp className="w-4 h-4 text-teal-500" />
+              <TrendingUp className="w-4 h-4 text-teal-500 flex-shrink-0" />
               <div>
                 <h3 className="font-display font-bold text-sm text-white">Evolución de Mensajes (Últimos 7 Días)</h3>
                 <p className="text-[11px] text-slate-500">Volumen de interacciones procesadas por la IA</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3 text-xs">
+            <div className="flex items-center space-x-3 text-xs flex-shrink-0">
               <div className="flex items-center space-x-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm bg-teal-500"></span>
                 <span className="text-slate-300">Mensajes</span>
