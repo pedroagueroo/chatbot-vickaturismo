@@ -306,7 +306,7 @@ export const ChatWindow = ({ conversation, messages, onToggleEscalate }) => {
       <div
         ref={messagesContainerRef}
         onScroll={handleMessagesScroll}
-        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-stable p-4 md:p-6 space-y-2"
+        className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-stable chat-wallpaper p-4 md:p-6 space-y-2"
       >
         {messages.length === 0 ? (
           <div className="text-center py-12 text-slate-500 text-xs">
